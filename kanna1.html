@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>KANNA — v3</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: #0c0d14;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        h1 {
+            color: rgba(126, 200, 227, 0.35);
+            font-weight: 200;
+            font-size: 0.8rem;
+            letter-spacing: 0.5em;
+            text-transform: uppercase;
+            margin-bottom: 24px;
+        }
+
+        .board {
+            position: relative;
+            width: calc(5 * 74px);
+            height: calc(5 * 74px);
+        }
+
+        .cell {
+            position: absolute;
+            width: 70px;
+            height: 70px;
+            background: rgba(126, 200, 227, 0.02);
+            border: 1px solid rgba(126, 200, 227, 0.07);
+            border-radius: 6px;
+        }
+
+        .cell.highlight {
+            background: rgba(126, 200, 227, 0.06);
+            border-color: rgba(126, 200, 227, 0.2);
+        }
+
+        .cube-anchor {
+            position: absolute;
+            width: 70px;
+            height: 70px;
+            z-index: 10;
+            transition: left 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                        top 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            cursor: pointer;
+        }
+
+        .cube-anchor.selected {
+            z-index: 20;
+        }
+
+        .cube-anchor.selected .scene {
+            filter: brightness(1.2);
+        }
+
+        .scene {
+            width: 70px;
+            height: 70px;
+            perspective: 700px;
+            position: relative;
+            transition: filter 0.3s;
+        }
+
+        .cube {
+            width: 64px;
+            height: 64px;
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            transform-style: preserve-3d;
+            transition: transform 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .face {
+            position: absolute;
+            width: 64px;
+            height: 64px;
+            border-radius: 10px;
+            overflow: hidden;
+            backface-visibility: hidden;
+            background: #0e0f18;
+            border: 1px solid rgba(126, 200, 227, 0.5);
+            box-shadow:
+                0 0 20px rgba(126, 200, 227, 0.08),
+                inset 0 0 25px rgba(126, 200, 227, 0.04);
+        }
+
+        .cube-anchor.selected .face {
+            border-color: rgba(126, 200, 227, 0.8);
+            box-shadow:
+                0 0 25px rgba(126, 200, 227, 0.15),
+                inset 0 0 25px rgba(126, 200, 227, 0.06);
+        }
+
+        .face svg { width: 100%; height: 100%; display: block; }
+        .face svg .separator { stroke: rgba(126,200,227,0.3); stroke-width: 0.8; }
+        .face svg line.icon, .face svg path.icon,
+        .face svg circle.icon, .face svg rect.icon {
+            stroke: #7ec8e3; stroke-width: 2;
+            stroke-linecap: round; stroke-linejoin: round;
+            fill: none;
+            filter: drop-shadow(0 0 4px rgba(126,200,227,0.5));
+        }
+        .face svg circle.point {
+            fill: #7ec8e3; stroke: none;
+            filter: drop-shadow(0 0 4px rgba(126,200,227,0.5));
+        }
+
+        .face-front  { transform: rotateY(0deg)    translateZ(32px); }
+        .face-back   { transform: rotateY(180deg)   translateZ(32px); }
+        .face-right  { transform: rotateY(90deg)    translateZ(32px); }
+        .face-left   { transform: rotateY(-90deg)   translateZ(32px); }
+        .face-top    { transform: rotateX(90deg)    translateZ(32px); }
+        .face-bottom { transform: rotateX(-90deg)   translateZ(32px); }
+
+        .info {
+            margin-top: 20px;
+            display: flex;
+            gap: 20px;
+        }
+
+        .info-item {
+            color: rgba(126, 200, 227, 0.25);
+            font-size: 0.65rem;
+            letter-spacing: 0.15em;
+        }
+
+        .info-item span {
+            color: rgba(126, 200, 227, 0.5);
+            font-weight: 600;
+        }
+
+        .hint {
+            color: rgba(180,180,190,0.2);
+            font-size: 0.6rem;
+            margin-top: 10px;
+        }
+
+        .glow {
+            width: 60px; height: 8px; border-radius: 50%;
+            background: rgba(126,200,227,0.12);
+            box-shadow: 0 0 25px rgba(126,200,227,0.12);
+            margin-top: 18px;
+        }
+
+        @keyframes spinFlash {
+            0%   { box-shadow: 0 0 25px rgba(126,200,227,0.12); }
+            50%  { box-shadow: 0 0 45px rgba(126,200,227,0.35); }
+            100% { box-shadow: 0 0 25px rgba(126,200,227,0.12); }
+        }
+        .glow.flash { animation: spinFlash 0.5s ease; }
+    </style>
+</head>
+<body>
+    <h1>K A N N A</h1>
+    <div class="board" id="board"></div>
+    <div class="glow" id="glow"></div>
+    <div class="info">
+        <div class="info-item">cube <span id="cubeLabel">1/6</span></div>
+        <div class="info-item">pos <span id="posLabel">—</span></div>
+        <div class="info-item">face <span id="faceLabel">—</span></div>
+    </div>
+    <div class="hint">clic = sélectionner · ← → ↑ ↓ / swipe = rouler · espace = spin</div>
+
+    <script>
+        const GRID = 5;
+        const CELL = 70;
+        const GAP = 4;
+        const STEP = CELL + GAP;
+        const NUM_CUBES = 6;
+
+        const boardEl = document.getElementById('board');
+        const posLabel = document.getElementById('posLabel');
+        const faceLabel = document.getElementById('faceLabel');
+        const cubeLabel = document.getElementById('cubeLabel');
+        const glowEl = document.getElementById('glow');
+
+        // Build cells
+        const cells = [];
+        for (let r = 0; r < GRID; r++) {
+            for (let c = 0; c < GRID; c++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.style.left = (c * STEP) + 'px';
+                cell.style.top = (r * STEP) + 'px';
+                boardEl.appendChild(cell);
+                cells.push(cell);
+            }
+        }
+
+        // ═══════════════════════════════════
+        //  DOMINO FACES
+        // ═══════════════════════════════════
+        const DOMINOS = [
+            [`<path class="icon" d="M 20 32 L 45 12 L 70 32"/>`,
+             `<circle class="icon" cx="45" cy="22" r="12"/>`],
+            [`<path class="icon" d="M 10 30 Q 28 8 45 22 Q 62 36 80 14"/>`,
+             `<circle class="point" cx="45" cy="12" r="4"/><circle class="point" cx="30" cy="32" r="4"/><circle class="point" cx="60" cy="32" r="4"/>`],
+            [`<circle class="icon" cx="30" cy="22" r="8"/><circle class="icon" cx="60" cy="22" r="8"/>`,
+             `<line class="icon" x1="25" y1="10" x2="25" y2="34"/><line class="icon" x1="45" y1="10" x2="45" y2="34"/><line class="icon" x1="65" y1="10" x2="65" y2="34"/>`],
+            [`<path class="icon" d="M 45 8 L 70 22 L 45 36 L 20 22 Z"/>`,
+             `<line class="icon" x1="15" y1="22" x2="75" y2="22"/>`],
+            [`<path class="icon" d="M 45 8 L 70 36 L 20 36 Z"/>`,
+             `<path class="icon" d="M 10 30 L 25 10 L 45 30 L 65 10 L 80 30"/>`],
+            [`<circle class="point" cx="30" cy="14" r="4"/><circle class="point" cx="60" cy="14" r="4"/><circle class="point" cx="30" cy="30" r="4"/><circle class="point" cx="60" cy="30" r="4"/>`,
+             `<rect class="icon" x="25" y="8" width="40" height="28" rx="3"/>`],
+        ];
+
+        const FACE_CLASSES = ['face-front','face-back','face-right','face-left','face-top','face-bottom'];
+
+        // ═══════════════════════════════════
+        //  MATH
+        // ═══════════════════════════════════
+        function mul(A, B) {
+            const R = [[0,0,0],[0,0,0],[0,0,0]];
+            for (let i = 0; i < 3; i++)
+                for (let j = 0; j < 3; j++)
+                    for (let k = 0; k < 3; k++)
+                        R[i][j] += A[i][k] * B[k][j];
+            return R;
+        }
+
+        function cleanMat(M) {
+            return M.map(row => row.map(v => {
+                const r = Math.round(v);
+                return Math.abs(v - r) < 0.0001 ? r : v;
+            }));
+        }
+
+        function rotX90()  { return [[ 1, 0, 0],[ 0, 0,-1],[ 0, 1, 0]]; }
+        function rotXn90() { return [[ 1, 0, 0],[ 0, 0, 1],[ 0,-1, 0]]; }
+        function rotY90()  { return [[ 0, 0, 1],[ 0, 1, 0],[-1, 0, 0]]; }
+        function rotYn90() { return [[ 0, 0,-1],[ 0, 1, 0],[ 1, 0, 0]]; }
+        function rotZn90() { return [[ 0, 1, 0],[-1, 0, 0],[ 0, 0, 1]]; }
+        function rotZ90()  { return [[ 0,-1, 0],[ 1, 0, 0],[ 0, 0, 1]]; }
+
+        function matToCSS(M) {
+            return `matrix3d(${M[0][0]},${M[1][0]},${M[2][0]},0,${M[0][1]},${M[1][1]},${M[2][1]},0,${M[0][2]},${M[1][2]},${M[2][2]},0,0,0,0,1)`;
+        }
+
+        function detectFace(M) {
+            const nz = [M[2][0], M[2][1], M[2][2]];
+            if (nz[2] ===  1) return 'front';
+            if (nz[2] === -1) return 'back';
+            if (nz[0] ===  1) return 'right';
+            if (nz[0] === -1) return 'left';
+            if (nz[1] === -1) return 'top';
+            if (nz[1] ===  1) return 'bottom';
+            return '?';
+        }
+
+        // ═══════════════════════════════════
+        //  CUBES — data + DOM
+        // ═══════════════════════════════════
+
+        // Pick 6 unique random positions
+        function randomPositions(n) {
+            const all = [];
+            for (let r = 0; r < GRID; r++)
+                for (let c = 0; c < GRID; c++)
+                    all.push({ r, c });
+            // Shuffle
+            for (let i = all.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [all[i], all[j]] = [all[j], all[i]];
+            }
+            return all.slice(0, n);
+        }
+
+        const positions = randomPositions(NUM_CUBES);
+        const cubes = [];
+
+        positions.forEach((pos, idx) => {
+            const anchor = document.createElement('div');
+            anchor.className = 'cube-anchor';
+            anchor.dataset.idx = idx;
+
+            const scene = document.createElement('div');
+            scene.className = 'scene';
+
+            const cube = document.createElement('div');
+            cube.className = 'cube';
+
+            DOMINOS.forEach((pair, i) => {
+                const face = document.createElement('div');
+                face.className = 'face ' + FACE_CLASSES[i];
+                face.innerHTML = `<svg viewBox="0 0 90 90">
+                    <line class="separator" x1="0" y1="45" x2="90" y2="45"/>
+                    <g>${pair[0]}</g>
+                    <g transform="translate(0, 45)">${pair[1]}</g>
+                </svg>`;
+                cube.appendChild(face);
+            });
+
+            scene.appendChild(cube);
+            anchor.appendChild(scene);
+            boardEl.appendChild(anchor);
+
+            const state = {
+                col: pos.c,
+                row: pos.r,
+                mat: [[1,0,0],[0,1,0],[0,0,1]],
+                targetMat: [[1,0,0],[0,1,0],[0,0,1]],
+                anchorEl: anchor,
+                cubeEl: cube,
+                idx: idx
+            };
+
+            // Position
+            anchor.style.left = (pos.c * STEP) + 'px';
+            anchor.style.top = (pos.r * STEP) + 'px';
+
+            // Click to select
+            anchor.addEventListener('pointerdown', (e) => {
+                e.stopPropagation();
+                selectCube(idx);
+                pointerStart = { x: e.clientX, y: e.clientY };
+                pointerMoved = false;
+                pointerOnCube = true;
+            });
+
+            cubes.push(state);
+        });
+
+        // ═══════════════════════════════════
+        //  SELECTION
+        // ═══════════════════════════════════
+        let selectedIdx = 0;
+        let transitioning = false;
+
+        function selectCube(idx) {
+            cubes.forEach(c => c.anchorEl.classList.remove('selected'));
+            selectedIdx = idx;
+            cubes[idx].anchorEl.classList.add('selected');
+            updateInfo();
+            updateHighlight();
+        }
+
+        function updateInfo() {
+            const c = cubes[selectedIdx];
+            cubeLabel.textContent = `${selectedIdx + 1}/${NUM_CUBES}`;
+            posLabel.textContent = `${c.col},${c.row}`;
+            faceLabel.textContent = detectFace(c.targetMat);
+        }
+
+        function updateHighlight() {
+            cells.forEach(c => c.classList.remove('highlight'));
+            const c = cubes[selectedIdx];
+            const idx = c.row * GRID + c.col;
+            if (cells[idx]) cells[idx].classList.add('highlight');
+        }
+
+        // ═══════════════════════════════════
+        //  OCCUPANCY — check collisions
+        // ═══════════════════════════════════
+        function isOccupied(col, row, exceptIdx) {
+            return cubes.some((c, i) => i !== exceptIdx && c.col === col && c.row === row);
+        }
+
+        // ═══════════════════════════════════
+        //  MOVE selected cube
+        // ═══════════════════════════════════
+        function moveSelected(dir) {
+            if (transitioning) return;
+            const c = cubes[selectedIdx];
+
+            let newCol = c.col, newRow = c.row;
+            let rotMatrix;
+
+            switch (dir) {
+                case 'right': newCol++; rotMatrix = rotYn90(); break;
+                case 'left':  newCol--; rotMatrix = rotY90();  break;
+                case 'up':    newRow--; rotMatrix = rotXn90(); break;
+                case 'down':  newRow++; rotMatrix = rotX90();  break;
+            }
+
+            // Bounds
+            if (newCol < 0 || newCol >= GRID || newRow < 0 || newRow >= GRID) return;
+            // Collision
+            if (isOccupied(newCol, newRow, selectedIdx)) return;
+
+            transitioning = true;
+            c.col = newCol;
+            c.row = newRow;
+            c.targetMat = cleanMat(mul(rotMatrix, c.targetMat));
+
+            c.cubeEl.style.transform = matToCSS(c.targetMat);
+            c.anchorEl.style.left = (c.col * STEP) + 'px';
+            c.anchorEl.style.top = (c.row * STEP) + 'px';
+
+            updateInfo();
+            updateHighlight();
+
+            glowEl.classList.remove('flash');
+            void glowEl.offsetWidth;
+            glowEl.classList.add('flash');
+
+            setTimeout(() => {
+                c.mat = c.targetMat.map(r => [...r]);
+                transitioning = false;
+            }, 550);
+        }
+
+        function spinSelected() {
+            if (transitioning) return;
+            transitioning = true;
+            const c = cubes[selectedIdx];
+            c.targetMat = cleanMat(mul(rotZn90(), c.targetMat));
+            c.cubeEl.style.transform = matToCSS(c.targetMat);
+
+            updateInfo();
+
+            glowEl.classList.remove('flash');
+            void glowEl.offsetWidth;
+            glowEl.classList.add('flash');
+
+            setTimeout(() => {
+                c.mat = c.targetMat.map(r => [...r]);
+                transitioning = false;
+            }, 550);
+        }
+
+        // ═══════════════════════════════════
+        //  INPUT
+        // ═══════════════════════════════════
+        let pointerStart = null;
+        let pointerMoved = false;
+        let pointerOnCube = false;
+
+        document.addEventListener('pointerdown', (e) => {
+            if (!pointerOnCube) {
+                pointerStart = { x: e.clientX, y: e.clientY };
+                pointerMoved = false;
+            }
+        });
+
+        document.addEventListener('pointermove', (e) => {
+            if (!pointerStart) return;
+            if (Math.hypot(e.clientX - pointerStart.x, e.clientY - pointerStart.y) > 10)
+                pointerMoved = true;
+        });
+
+        document.addEventListener('pointerup', (e) => {
+            if (!pointerStart) { pointerOnCube = false; return; }
+            const dx = e.clientX - pointerStart.x;
+            const dy = e.clientY - pointerStart.y;
+            const adx = Math.abs(dx);
+            const ady = Math.abs(dy);
+
+            if (!pointerMoved || Math.max(adx, ady) < 15) {
+                if (pointerOnCube) {
+                    // Already selected via pointerdown on cube — do nothing extra
+                } else {
+                    spinSelected();
+                }
+            } else {
+                if (adx > ady) {
+                    moveSelected(dx > 0 ? 'right' : 'left');
+                } else {
+                    moveSelected(dy > 0 ? 'down' : 'up');
+                }
+            }
+            pointerStart = null;
+            pointerOnCube = false;
+        });
+
+        document.addEventListener('pointercancel', () => { pointerStart = null; pointerOnCube = false; });
+
+        // Keyboard
+        document.addEventListener('keydown', (e) => {
+            switch (e.key) {
+                case 'ArrowRight': moveSelected('right'); e.preventDefault(); break;
+                case 'ArrowLeft':  moveSelected('left');  e.preventDefault(); break;
+                case 'ArrowUp':    moveSelected('up');    e.preventDefault(); break;
+                case 'ArrowDown':  moveSelected('down');  e.preventDefault(); break;
+                case ' ':          spinSelected();        e.preventDefault(); break;
+                case 'Tab':
+                    e.preventDefault();
+                    selectCube((selectedIdx + 1) % NUM_CUBES);
+                    break;
+            }
+        });
+
+        // Init
+        selectCube(0);
+    </script>
+</body>
+</html>
