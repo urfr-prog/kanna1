@@ -2,502 +2,339 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>KANNA — v3</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Domino Cube — V2</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        :root { --C:80px; --R:10px; --bg:#0c0d14; --bg2:#0e0f18; }
+        html,body { width:100%; height:100%; background:var(--bg); font-family:-apple-system,BlinkMacSystemFont,sans-serif; user-select:none; overflow:hidden; touch-action:manipulation; }
+        #app { width:100vw; height:100dvh; display:flex; flex-direction:column; }
 
-        body {
-            background-color: #0c0d14;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            overflow: hidden;
-            user-select: none;
-            -webkit-user-select: none;
-            touch-action: none;
-        }
+        .header { flex-shrink:0; display:flex; justify-content:space-between; align-items:center; padding:10px 16px 6px; border-bottom:1px solid rgba(126,200,227,0.08); }
+        .title { font-size:0.6rem; letter-spacing:0.25em; text-transform:uppercase; color:rgba(126,200,227,0.3); }
+        .moves { font-size:0.65rem; color:rgba(126,200,227,0.3); letter-spacing:0.1em; }
+        .moves b { color:rgba(126,200,227,0.6); font-weight:500; }
 
-        h1 {
-            color: rgba(126, 200, 227, 0.35);
-            font-weight: 200;
-            font-size: 0.8rem;
-            letter-spacing: 0.5em;
-            text-transform: uppercase;
-            margin-bottom: 24px;
-        }
+        .scene-wrap { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; }
+        .scene { width:100vw; height:100vw; max-width:400px; max-height:400px; perspective:700px; position:relative; touch-action:none; }
+        .group { width:0; height:0; position:absolute; top:50%; left:50%; transform-style:preserve-3d; transition:transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94); }
+        .cube { width:var(--C); height:var(--C); position:absolute; margin-left:calc(var(--C)/-2); margin-top:calc(var(--C)/-2); transform-style:preserve-3d; }
 
-        .board {
-            position: relative;
-            width: calc(5 * 74px);
-            height: calc(5 * 74px);
-        }
+        .face { position:absolute; width:var(--C); height:var(--C); border-radius:var(--R); overflow:hidden; backface-visibility:hidden; background:var(--bg2); border:1.5px solid rgba(126,200,227,0.55); box-shadow:0 0 20px rgba(126,200,227,0.1),inset 0 0 20px rgba(126,200,227,0.04); transition:border-color 0.3s,box-shadow 0.3s; }
+        .face svg { width:100%; height:100%; display:block; transition:transform 0.25s cubic-bezier(0.4,0,0.2,1); }
+        .face-front{transform:rotateY(0deg) translateZ(calc(var(--C)/2));}
+        .face-back{transform:rotateY(180deg) translateZ(calc(var(--C)/2));}
+        .face-right{transform:rotateY(90deg) translateZ(calc(var(--C)/2));}
+        .face-left{transform:rotateY(-90deg) translateZ(calc(var(--C)/2));}
+        .face-top{transform:rotateX(90deg) translateZ(calc(var(--C)/2));}
+        .face-bottom{transform:rotateX(-90deg) translateZ(calc(var(--C)/2));}
 
-        .cell {
-            position: absolute;
-            width: 70px;
-            height: 70px;
-            background: rgba(126, 200, 227, 0.02);
-            border: 1px solid rgba(126, 200, 227, 0.07);
-            border-radius: 6px;
-        }
+        .sat { position:absolute; width:var(--C); height:var(--C); margin-left:calc(var(--C)/-2); margin-top:calc(var(--C)/-2); border-radius:var(--R); overflow:hidden; backface-visibility:hidden; background:var(--bg2); cursor:pointer; transition:border-color 0.3s,box-shadow 0.3s; }
+        .sat svg { width:100%; height:100%; display:block; transition:transform 0.25s cubic-bezier(0.4,0,0.2,1); }
 
-        .cell.highlight {
-            background: rgba(126, 200, 227, 0.06);
-            border-color: rgba(126, 200, 227, 0.2);
-        }
+        /* ═══ ÉTATS (repris d'ADAM) ═══ */
+        .sat.white,.face.white { border:1px solid rgba(180,180,190,0.35); box-shadow:none; }
+        .white svg line.icon,.white svg path.icon,.white svg circle.icon,.white svg rect.icon { stroke:rgba(180,180,190,0.4); filter:none; }
+        .white svg circle.point { fill:rgba(180,180,190,0.4); filter:none; }
+        .white svg .sep { stroke:rgba(180,180,190,0.25); }
 
-        .cube-anchor {
-            position: absolute;
-            width: 70px;
-            height: 70px;
-            z-index: 10;
-            transition: left 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-                        top 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            cursor: pointer;
-        }
+        .sat.silver,.face.silver { border:1.5px solid rgba(6,182,212,0.6); box-shadow:0 0 14px rgba(6,182,212,0.2),inset 0 0 15px rgba(6,182,212,0.05); }
+        .silver svg line.icon,.silver svg path.icon,.silver svg circle.icon,.silver svg rect.icon { stroke:#22d3ee; filter:drop-shadow(0 0 2px rgba(34,211,238,0.4)); }
+        .silver svg circle.point { fill:#22d3ee; filter:drop-shadow(0 0 2px rgba(34,211,238,0.4)); }
+        .silver svg .sep { stroke:rgba(34,211,238,0.35); }
 
-        .cube-anchor.selected {
-            z-index: 20;
-        }
+        .sat.gold,.face.gold { border:1.5px solid rgba(255,215,0,0.7); box-shadow:0 0 22px rgba(255,215,0,0.3),inset 0 0 20px rgba(255,215,0,0.05); }
+        .gold svg line.icon,.gold svg path.icon,.gold svg circle.icon,.gold svg rect.icon { stroke:#ffd700; filter:drop-shadow(0 0 4px rgba(255,215,0,0.6)); }
+        .gold svg circle.point { fill:#ffd700; filter:drop-shadow(0 0 4px rgba(255,215,0,0.6)); }
+        .gold svg .sep { stroke:rgba(255,215,0,0.35); }
 
-        .cube-anchor.selected .scene {
-            filter: brightness(1.2);
-        }
+        .sat.emerald,.face.emerald { border:1.5px solid rgba(52,211,153,0.9); box-shadow:0 0 28px rgba(5,150,105,0.5),0 0 45px rgba(52,211,153,0.3),inset 0 0 25px rgba(52,211,153,0.1); animation:emeraldGlow 2.5s ease-in-out infinite; }
+        .emerald svg line.icon,.emerald svg path.icon,.emerald svg circle.icon,.emerald svg rect.icon { stroke:#34d399; filter:drop-shadow(0 0 6px rgba(52,211,153,0.9)) drop-shadow(0 0 12px rgba(5,150,105,0.5)); }
+        .emerald svg circle.point { fill:#34d399; filter:drop-shadow(0 0 6px rgba(52,211,153,0.9)); }
+        .emerald svg .sep { stroke:rgba(52,211,153,0.5); }
+        @keyframes emeraldGlow { 0%,100%{box-shadow:0 0 28px rgba(5,150,105,0.5),0 0 45px rgba(52,211,153,0.3),inset 0 0 25px rgba(52,211,153,0.1);} 50%{box-shadow:0 0 38px rgba(5,150,105,0.7),0 0 60px rgba(52,211,153,0.4),inset 0 0 35px rgba(52,211,153,0.15);} }
 
-        .scene {
-            width: 70px;
-            height: 70px;
-            perspective: 700px;
-            position: relative;
-            transition: filter 0.3s;
-        }
+        .sat.cosmic,.face.cosmic { border:2px solid transparent; background:linear-gradient(var(--bg2),var(--bg2)) padding-box,conic-gradient(from var(--cosmic-angle,0deg),#ff006e,#8338ec,#06b6d4,#34d399,#ffd700,#ff006e) border-box; box-shadow:0 0 45px rgba(131,56,236,0.6),0 0 65px rgba(255,0,110,0.3),0 0 85px rgba(6,182,212,0.3),inset 0 0 40px rgba(131,56,236,0.15); animation:cosmicRotate 4s linear infinite,cosmicPulse 2s ease-in-out infinite; }
+        .cosmic svg line.icon,.cosmic svg path.icon,.cosmic svg circle.icon,.cosmic svg rect.icon { stroke:#c4b5fd; filter:drop-shadow(0 0 8px rgba(131,56,236,0.9)) drop-shadow(0 0 12px rgba(255,0,110,0.6)); animation:cosmicIconShift 3s ease-in-out infinite; }
+        .cosmic svg circle.point { fill:#c4b5fd; filter:drop-shadow(0 0 8px rgba(131,56,236,0.9)); animation:cosmicPointPulse 1.5s ease-in-out infinite; }
+        .cosmic svg .sep { stroke:rgba(196,181,253,0.6); }
+        @property --cosmic-angle { syntax:'<angle>'; initial-value:0deg; inherits:false; }
+        @keyframes cosmicRotate{to{--cosmic-angle:360deg;}}
+        @keyframes cosmicPulse{0%,100%{box-shadow:0 0 45px rgba(131,56,236,0.6),0 0 65px rgba(255,0,110,0.3),0 0 85px rgba(6,182,212,0.3),inset 0 0 40px rgba(131,56,236,0.15);}50%{box-shadow:0 0 60px rgba(131,56,236,0.8),0 0 85px rgba(255,0,110,0.5),0 0 105px rgba(6,182,212,0.4),inset 0 0 55px rgba(131,56,236,0.2);}}
+        @keyframes cosmicIconShift{0%,100%{stroke:#c4b5fd;}33%{stroke:#22d3ee;}66%{stroke:#f472b6;}}
+        @keyframes cosmicPointPulse{0%,100%{fill:#c4b5fd;}50%{fill:#f472b6;}}
 
-        .cube {
-            width: 64px;
-            height: 64px;
-            position: absolute;
-            top: 3px;
-            left: 3px;
-            transform-style: preserve-3d;
-            transition: transform 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        }
+        .sat.can-fuse,.face.can-fuse { border-color:rgba(52,211,153,0.7)!important; box-shadow:0 0 22px rgba(52,211,153,0.25),inset 0 0 14px rgba(52,211,153,0.05)!important; }
 
-        .face {
-            position: absolute;
-            width: 64px;
-            height: 64px;
-            border-radius: 10px;
-            overflow: hidden;
-            backface-visibility: hidden;
-            background: #0e0f18;
-            border: 1px solid rgba(126, 200, 227, 0.5);
-            box-shadow:
-                0 0 20px rgba(126, 200, 227, 0.08),
-                inset 0 0 25px rgba(126, 200, 227, 0.04);
-        }
+        @keyframes fuseFlash{0%{opacity:1;filter:brightness(1);}40%{opacity:1;filter:brightness(1.6);}100%{opacity:0;filter:brightness(2);transform:scale(0.3);}}
+        .sat.fusing{animation:fuseFlash 0.4s ease-out forwards;pointer-events:none;}
+        @keyframes porteGlow{0%{filter:brightness(1);}50%{filter:brightness(1.4);}100%{filter:brightness(1);}}
+        .face.porte-flash{animation:porteGlow 0.4s ease-out;}
 
-        .cube-anchor.selected .face {
-            border-color: rgba(126, 200, 227, 0.8);
-            box-shadow:
-                0 0 25px rgba(126, 200, 227, 0.15),
-                inset 0 0 25px rgba(126, 200, 227, 0.06);
-        }
+        .footer { flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:6px; padding:8px 0 14px; border-top:1px solid rgba(126,200,227,0.06); }
+        .glow { width:70px; height:6px; border-radius:50%; background:rgba(126,200,227,0.12); box-shadow:0 0 20px rgba(126,200,227,0.12); }
+        .face-label { color:rgba(126,200,227,0.25); font-size:0.6rem; letter-spacing:0.2em; }
+        .fusion-info { color:rgba(52,211,153,0.65); font-size:0.55rem; letter-spacing:0.1em; min-height:1em; }
+        .nav-dots { display:flex; gap:8px; }
+        .nav-dot { width:8px; height:8px; border-radius:50%; background:rgba(126,200,227,0.1); transition:all 0.4s; cursor:pointer; }
+        .nav-dot.active { background:rgba(126,200,227,0.6); box-shadow:0 0 8px rgba(126,200,227,0.3); }
+        .nav-dot.solved { background:rgba(52,211,153,0.5); box-shadow:0 0 8px rgba(52,211,153,0.3); }
+        .btn { background:transparent; border:1px solid rgba(126,200,227,0.12); color:rgba(126,200,227,0.35); padding:5px 16px; border-radius:6px; font-size:0.55rem; letter-spacing:0.1em; cursor:pointer; text-transform:uppercase; transition:all 0.2s; margin-top:2px; }
+        .btn:hover { border-color:rgba(126,200,227,0.3); color:rgba(126,200,227,0.6); }
 
-        .face svg { width: 100%; height: 100%; display: block; }
-        .face svg .separator { stroke: rgba(126,200,227,0.3); stroke-width: 0.8; }
-        .face svg line.icon, .face svg path.icon,
-        .face svg circle.icon, .face svg rect.icon {
-            stroke: #7ec8e3; stroke-width: 2;
-            stroke-linecap: round; stroke-linejoin: round;
-            fill: none;
-            filter: drop-shadow(0 0 4px rgba(126,200,227,0.5));
-        }
-        .face svg circle.point {
-            fill: #7ec8e3; stroke: none;
-            filter: drop-shadow(0 0 4px rgba(126,200,227,0.5));
-        }
-
-        .face-front  { transform: rotateY(0deg)    translateZ(32px); }
-        .face-back   { transform: rotateY(180deg)   translateZ(32px); }
-        .face-right  { transform: rotateY(90deg)    translateZ(32px); }
-        .face-left   { transform: rotateY(-90deg)   translateZ(32px); }
-        .face-top    { transform: rotateX(90deg)    translateZ(32px); }
-        .face-bottom { transform: rotateX(-90deg)   translateZ(32px); }
-
-        .info {
-            margin-top: 20px;
-            display: flex;
-            gap: 20px;
-        }
-
-        .info-item {
-            color: rgba(126, 200, 227, 0.25);
-            font-size: 0.65rem;
-            letter-spacing: 0.15em;
-        }
-
-        .info-item span {
-            color: rgba(126, 200, 227, 0.5);
-            font-weight: 600;
-        }
-
-        .hint {
-            color: rgba(180,180,190,0.2);
-            font-size: 0.6rem;
-            margin-top: 10px;
-        }
-
-        .glow {
-            width: 60px; height: 8px; border-radius: 50%;
-            background: rgba(126,200,227,0.12);
-            box-shadow: 0 0 25px rgba(126,200,227,0.12);
-            margin-top: 18px;
-        }
-
-        @keyframes spinFlash {
-            0%   { box-shadow: 0 0 25px rgba(126,200,227,0.12); }
-            50%  { box-shadow: 0 0 45px rgba(126,200,227,0.35); }
-            100% { box-shadow: 0 0 25px rgba(126,200,227,0.12); }
-        }
-        .glow.flash { animation: spinFlash 0.5s ease; }
+        .victory { position:fixed; inset:0; background:rgba(10,11,16,0.9); display:none; align-items:center; justify-content:center; flex-direction:column; gap:16px; z-index:100; }
+        .victory.show { display:flex; }
+        .victory-text { font-size:1.2rem; letter-spacing:0.3em; text-transform:uppercase; color:rgba(52,211,153,0.9); text-shadow:0 0 30px rgba(52,211,153,0.4); }
+        .victory-sub { font-size:0.7rem; color:rgba(126,200,227,0.4); letter-spacing:0.15em; }
     </style>
 </head>
 <body>
-    <h1>K A N N A</h1>
-    <div class="board" id="board"></div>
-    <div class="glow" id="glow"></div>
-    <div class="info">
-        <div class="info-item">cube <span id="cubeLabel">1/6</span></div>
-        <div class="info-item">pos <span id="posLabel">—</span></div>
-        <div class="info-item">face <span id="faceLabel">—</span></div>
+<div id="app">
+    <div class="header">
+        <div class="title">Domino Cube — V2</div>
+        <div class="moves">Coups <b id="moveCount">0</b></div>
     </div>
-    <div class="hint">clic = sélectionner · ← → ↑ ↓ / swipe = rouler · espace = spin</div>
+    <div class="scene-wrap">
+        <div class="scene" id="scene">
+            <div class="group" id="group">
+                <div class="cube" id="cube">
+                    <div class="face face-front" id="f-front"></div>
+                    <div class="face face-right" id="f-right"></div>
+                    <div class="face face-back" id="f-back"></div>
+                    <div class="face face-left" id="f-left"></div>
+                    <div class="face face-top" id="f-top"></div>
+                    <div class="face face-bottom" id="f-bottom"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="footer">
+        <div class="glow"></div>
+        <div class="face-label" id="faceLabel"></div>
+        <div class="fusion-info" id="fusionInfo"></div>
+        <div class="nav-dots" id="navDots"></div>
+        <button class="btn" onclick="resetPuzzle()">Reset</button>
+    </div>
+</div>
+<div class="victory" id="victory">
+    <div class="victory-text">Résolu</div>
+    <div class="victory-sub" id="victorySub"></div>
+    <button class="btn" onclick="resetPuzzle();document.getElementById('victory').classList.remove('show');">Rejouer</button>
+</div>
 
-    <script>
-        const GRID = 5;
-        const CELL = 70;
-        const GAP = 4;
-        const STEP = CELL + GAP;
-        const NUM_CUBES = 6;
+<script>
+// ═══ 8 SIGLES ADAM NIVEAU 1 ═══
+const S = {
+    chevron:    `<path class="icon" d="M 20 32 L 45 12 L 70 32"/>`,
+    circle:     `<circle class="icon" cx="45" cy="22" r="12"/>`,
+    twoCircles: `<circle class="icon" cx="30" cy="22" r="8"/><circle class="icon" cx="60" cy="22" r="8"/>`,
+    line:       `<line class="icon" x1="15" y1="22" x2="75" y2="22"/>`,
+    threeLines: `<line class="icon" x1="25" y1="10" x2="25" y2="34"/><line class="icon" x1="45" y1="10" x2="45" y2="34"/><line class="icon" x1="65" y1="10" x2="65" y2="34"/>`,
+    twoPoints:  `<circle class="point" cx="30" cy="22" r="4"/><circle class="point" cx="60" cy="22" r="4"/>`,
+    square:     `<rect class="icon" x="25" y="10" width="40" height="24" rx="3"/>`,
+    wave:       `<path class="icon" d="M 10 22 Q 28 6 45 22 Q 62 38 80 22"/>`,
+};
 
-        const boardEl = document.getElementById('board');
-        const posLabel = document.getElementById('posLabel');
-        const faceLabel = document.getElementById('faceLabel');
-        const cubeLabel = document.getElementById('cubeLabel');
-        const glowEl = document.getElementById('glow');
+const G=110, HALF=40;
+const STATES=['white','silver','gold','emerald','cosmic'];
 
-        // Build cells
-        const cells = [];
-        for (let r = 0; r < GRID; r++) {
-            for (let c = 0; c < GRID; c++) {
-                const cell = document.createElement('div');
-                cell.className = 'cell';
-                cell.style.left = (c * STEP) + 'px';
-                cell.style.top = (r * STEP) + 'px';
-                boardEl.appendChild(cell);
-                cells.push(cell);
-            }
-        }
+function dominoSVG(top, bot) {
+    return `<svg viewBox="0 0 90 90">
+        <line class="sep" x1="0" y1="45" x2="90" y2="45"/>
+        <g>${top}</g><g transform="translate(0,45)">${bot}</g>
+    </svg>`;
+}
 
-        // ═══════════════════════════════════
-        //  DOMINO FACES
-        // ═══════════════════════════════════
-        const DOMINOS = [
-            [`<path class="icon" d="M 20 32 L 45 12 L 70 32"/>`,
-             `<circle class="icon" cx="45" cy="22" r="12"/>`],
-            [`<path class="icon" d="M 10 30 Q 28 8 45 22 Q 62 36 80 14"/>`,
-             `<circle class="point" cx="45" cy="12" r="4"/><circle class="point" cx="30" cy="32" r="4"/><circle class="point" cx="60" cy="32" r="4"/>`],
-            [`<circle class="icon" cx="30" cy="22" r="8"/><circle class="icon" cx="60" cy="22" r="8"/>`,
-             `<line class="icon" x1="25" y1="10" x2="25" y2="34"/><line class="icon" x1="45" y1="10" x2="45" y2="34"/><line class="icon" x1="65" y1="10" x2="65" y2="34"/>`],
-            [`<path class="icon" d="M 45 8 L 70 22 L 45 36 L 20 22 Z"/>`,
-             `<line class="icon" x1="15" y1="22" x2="75" y2="22"/>`],
-            [`<path class="icon" d="M 45 8 L 70 36 L 20 36 Z"/>`,
-             `<path class="icon" d="M 10 30 L 25 10 L 45 30 L 65 10 L 80 30"/>`],
-            [`<circle class="point" cx="30" cy="14" r="4"/><circle class="point" cx="60" cy="14" r="4"/><circle class="point" cx="30" cy="30" r="4"/><circle class="point" cx="60" cy="30" r="4"/>`,
-             `<rect class="icon" x="25" y="8" width="40" height="28" rx="3"/>`],
-        ];
+// ═══ MOTEUR ═══
+function getExposed(d,dir){
+    const r=((d.rotation%360)+360)%360;
+    const m={0:{top:'t',bottom:'b'},90:{left:'b',right:'t'},180:{top:'b',bottom:'t'},270:{left:'t',right:'b'}};
+    const key=m[r]?.[dir];return key?d[key]:null;
+}
+function dirD(dx,dy){if(dy<0&&dx===0)return'top';if(dy>0&&dx===0)return'bottom';if(dx<0&&dy===0)return'left';if(dx>0&&dy===0)return'right';return null;}
+function dirO(d){return{top:'bottom',bottom:'top',left:'right',right:'left'}[d];}
 
-        const FACE_CLASSES = ['face-front','face-back','face-right','face-left','face-top','face-bottom'];
+function canFuse(d1,x1,y1,d2,x2,y2){
+    if(Math.abs(x2-x1)+Math.abs(y2-y1)!==1)return false;
+    const a=dirD(x2-x1,y2-y1),b=dirO(a);
+    const f1=getExposed(d1,a),f2=getExposed(d2,b);
+    return f1!==null&&f2!==null&&f1===f2;
+}
 
-        // ═══════════════════════════════════
-        //  MATH
-        // ═══════════════════════════════════
-        function mul(A, B) {
-            const R = [[0,0,0],[0,0,0],[0,0,0]];
-            for (let i = 0; i < 3; i++)
-                for (let j = 0; j < 3; j++)
-                    for (let k = 0; k < 3; k++)
-                        R[i][j] += A[i][k] * B[k][j];
-            return R;
-        }
+function fusionResult(sat,sx,sy,p,px,py){
+    const d=dirD(px-sx,py-sy),o=dirO(d);
+    const eS=getExposed(sat,dirO(d)),eP=getExposed(p,dirO(o));
+    const isH=(d==='left'||d==='right');
+    // État : monte d'un cran
+    const maxSt=Math.max(STATES.indexOf(sat.state||'white'),STATES.indexOf(p.state||'white'));
+    const newState=STATES[Math.min(maxSt+1,STATES.length-1)];
+    return{t:eS,b:eP,rotation:isH?90:0,state:newState};
+}
 
-        function cleanMat(M) {
-            return M.map(row => row.map(v => {
-                const r = Math.round(v);
-                return Math.abs(v - r) < 0.0001 ? r : v;
-            }));
-        }
+// ═══ PUZZLE — 4×3, 12 fusions, tous solos insolubles ═══
+let PORTE, TABLEAUX, moveCount;
+const TOTAL=4;
 
-        function rotX90()  { return [[ 1, 0, 0],[ 0, 0,-1],[ 0, 1, 0]]; }
-        function rotXn90() { return [[ 1, 0, 0],[ 0, 0, 1],[ 0,-1, 0]]; }
-        function rotY90()  { return [[ 0, 0, 1],[ 0, 1, 0],[-1, 0, 0]]; }
-        function rotYn90() { return [[ 0, 0,-1],[ 0, 1, 0],[ 1, 0, 0]]; }
-        function rotZn90() { return [[ 0, 1, 0],[-1, 0, 0],[ 0, 0, 1]]; }
-        function rotZ90()  { return [[ 0,-1, 0],[ 1, 0, 0],[ 0, 0, 1]]; }
+function buildPuzzle(){
+    PORTE={t:S.chevron,b:S.circle,rotation:0,state:'white'};
+    TABLEAUX=[
+        {name:'T1 — Éveil',sats:[
+            {t:S.line,b:S.threeLines,dx:0,dy:-G,rotation:0,state:'white'},
+            {t:S.wave,b:S.square,dx:G,dy:0,rotation:0,state:'white'},
+            {t:S.chevron,b:S.line,dx:0,dy:G,rotation:0,state:'white'},
+        ]},
+        {name:'T2 — Passage',sats:[
+            {t:S.wave,b:S.chevron,dx:0,dy:-G,rotation:90,state:'white'},
+            {t:S.line,b:S.twoCircles,dx:G,dy:0,rotation:0,state:'white'},
+            {t:S.circle,b:S.threeLines,dx:0,dy:G,rotation:90,state:'white'},
+        ]},
+        {name:'T3 — Miroir',sats:[
+            {t:S.square,b:S.wave,dx:0,dy:-G,rotation:0,state:'white'},
+            {t:S.twoCircles,b:S.twoPoints,dx:G,dy:0,rotation:0,state:'white'},
+            {t:S.square,b:S.chevron,dx:0,dy:G,rotation:0,state:'white'},
+        ]},
+        {name:'T4 — Convergence',sats:[
+            {t:S.threeLines,b:S.square,dx:0,dy:-G,rotation:0,state:'white'},
+            {t:S.twoPoints,b:S.wave,dx:G,dy:0,rotation:0,state:'white'},
+            {t:S.threeLines,b:S.twoCircles,dx:0,dy:G,rotation:0,state:'white'},
+        ]},
+    ];
+    moveCount=0;
+}
 
-        function matToCSS(M) {
-            return `matrix3d(${M[0][0]},${M[1][0]},${M[2][0]},0,${M[0][1]},${M[1][1]},${M[2][1]},0,${M[0][2]},${M[1][2]},${M[2][2]},0,0,0,0,1)`;
-        }
+// ═══ DOM ═══
+const groupEl=document.getElementById('group');
+const cubeEl=document.getElementById('cube');
+const faceEls={front:document.getElementById('f-front'),right:document.getElementById('f-right'),back:document.getElementById('f-back'),left:document.getElementById('f-left')};
+const scene=document.getElementById('scene');
+const labelEl=document.getElementById('faceLabel');
+const dotsEl=document.getElementById('navDots');
+const fusionInfoEl=document.getElementById('fusionInfo');
 
-        function detectFace(M) {
-            const nz = [M[2][0], M[2][1], M[2][2]];
-            if (nz[2] ===  1) return 'front';
-            if (nz[2] === -1) return 'back';
-            if (nz[0] ===  1) return 'right';
-            if (nz[0] === -1) return 'left';
-            if (nz[1] === -1) return 'top';
-            if (nz[1] ===  1) return 'bottom';
-            return '?';
-        }
+document.getElementById('f-top').innerHTML=dominoSVG(S.twoPoints,S.square);
+document.getElementById('f-bottom').innerHTML=dominoSVG(S.wave,S.threeLines);
 
-        // ═══════════════════════════════════
-        //  CUBES — data + DOM
-        // ═══════════════════════════════════
+let satEls=[],frontSatEls=[];
+let currentIdx=0,angle=0,busy=false,isRotating=false;
 
-        // Pick 6 unique random positions
-        function randomPositions(n) {
-            const all = [];
-            for (let r = 0; r < GRID; r++)
-                for (let c = 0; c < GRID; c++)
-                    all.push({ r, c });
-            // Shuffle
-            for (let i = all.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [all[i], all[j]] = [all[j], all[i]];
-            }
-            return all.slice(0, n);
-        }
+function mod(n){return((n%TOTAL)+TOTAL)%TOTAL;}
+function clearSats(){satEls.forEach(el=>el.remove());satEls=[];frontSatEls=[];}
 
-        const positions = randomPositions(NUM_CUBES);
-        const cubes = [];
+function createSats(tabIdx,faceRotY){
+    TABLEAUX[tabIdx].sats.forEach(sat=>{
+        const el=document.createElement('div');
+        el.className='sat '+(sat.state||'white');
+        el.innerHTML=dominoSVG(sat.t,sat.b);
+        el.querySelector('svg').style.transform=`rotate(${sat.rotation}deg)`;
+        el.style.transform=`rotateY(${faceRotY}deg) translateZ(${HALF}px) translateX(${sat.dx}px) translateY(${sat.dy}px)`;
+        groupEl.appendChild(el);
+        satEls.push(el);
+        if(faceRotY===0)frontSatEls.push(el);
+    });
+}
 
-        positions.forEach((pos, idx) => {
-            const anchor = document.createElement('div');
-            anchor.className = 'cube-anchor';
-            anchor.dataset.idx = idx;
+function assignAll(){
+    const svg=dominoSVG(PORTE.t,PORTE.b);
+    const st=PORTE.state||'white';
+    Object.values(faceEls).forEach(f=>{
+        f.innerHTML=svg;
+        f.className=f.className.replace(/\b(white|silver|gold|emerald|cosmic)\b/g,'').trim();
+        f.classList.add(st);
+        f.querySelector('svg').style.transform=`rotate(${PORTE.rotation}deg)`;
+    });
+    clearSats();
+    createSats(mod(currentIdx),0);
+    createSats(mod(currentIdx+1),90);
+    createSats(mod(currentIdx+2),180);
+    createSats(mod(currentIdx-1),-90);
+    updateCanFuse();
+}
 
-            const scene = document.createElement('div');
-            scene.className = 'scene';
+function updateCanFuse(){
+    const sats=TABLEAUX[mod(currentIdx)].sats;
+    let any=false;
+    sats.forEach((sat,i)=>{
+        const gx=Math.round(sat.dx/G),gy=Math.round(sat.dy/G);
+        const ok=canFuse(PORTE,0,0,sat,gx,gy);
+        if(frontSatEls[i])frontSatEls[i].classList.toggle('can-fuse',ok);
+        if(ok)any=true;
+    });
+    faceEls.front.classList.toggle('can-fuse',any);
+    fusionInfoEl.textContent=any?'⟡ Fusion possible':'';
+}
 
-            const cube = document.createElement('div');
-            cube.className = 'cube';
+// ═══ NAV ═══
+for(let i=0;i<TOTAL;i++){const d=document.createElement('div');d.className='nav-dot'+(i===0?' active':'');d.addEventListener('click',()=>goToTableau(i));dotsEl.appendChild(d);}
 
-            DOMINOS.forEach((pair, i) => {
-                const face = document.createElement('div');
-                face.className = 'face ' + FACE_CLASSES[i];
-                face.innerHTML = `<svg viewBox="0 0 90 90">
-                    <line class="separator" x1="0" y1="45" x2="90" y2="45"/>
-                    <g>${pair[0]}</g>
-                    <g transform="translate(0, 45)">${pair[1]}</g>
-                </svg>`;
-                cube.appendChild(face);
-            });
+function updateUI(){
+    const idx=mod(currentIdx);
+    labelEl.textContent=TABLEAUX[idx].name;
+    dotsEl.querySelectorAll('.nav-dot').forEach((d,i)=>{d.classList.toggle('active',i===idx);d.classList.toggle('solved',TABLEAUX[i].sats.length===0);});
+    document.getElementById('moveCount').textContent=moveCount;
+    checkVictory();
+}
 
-            scene.appendChild(cube);
-            anchor.appendChild(scene);
-            boardEl.appendChild(anchor);
+function goToTableau(idx){if(busy||mod(currentIdx)===idx)return;busy=true;currentIdx=idx;angle=0;groupEl.style.transition='none';groupEl.style.transform='rotateY(0deg)';assignAll();updateUI();void groupEl.offsetWidth;groupEl.style.transition='transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94)';busy=false;}
+function cubeNav(dir){if(busy)return;busy=true;angle+=dir*90;groupEl.style.transform=`rotateY(${-angle}deg)`;setTimeout(()=>{currentIdx=mod(currentIdx+dir);angle=0;groupEl.style.transition='none';groupEl.style.transform='rotateY(0deg)';assignAll();updateUI();void groupEl.offsetWidth;groupEl.style.transition='transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94)';busy=false;},620);}
 
-            const state = {
-                col: pos.c,
-                row: pos.r,
-                mat: [[1,0,0],[0,1,0],[0,0,1]],
-                targetMat: [[1,0,0],[0,1,0],[0,0,1]],
-                anchorEl: anchor,
-                cubeEl: cube,
-                idx: idx
-            };
+// ═══ ROTATION BIDIRECTIONNELLE ═══
+function rotateSat(sat,el,cw){if(isRotating||busy)return;isRotating=true;sat.rotation=(sat.rotation||0)+(cw?90:-90);moveCount++;el.querySelector('svg').style.transform=`rotate(${sat.rotation}deg)`;setTimeout(()=>{isRotating=false;updateUI();checkAutoFuse();},280);}
+function rotatePorte(cw){if(isRotating||busy)return;isRotating=true;PORTE.rotation=(PORTE.rotation||0)+(cw?90:-90);moveCount++;Object.values(faceEls).forEach(f=>{f.querySelector('svg').style.transform=`rotate(${PORTE.rotation}deg)`;});setTimeout(()=>{isRotating=false;updateUI();checkAutoFuse();},280);}
 
-            // Position
-            anchor.style.left = (pos.c * STEP) + 'px';
-            anchor.style.top = (pos.r * STEP) + 'px';
+// ═══ FUSION AUTO ═══
+function checkAutoFuse(){if(isRotating||busy)return;const sats=TABLEAUX[mod(currentIdx)].sats;for(let i=0;i<sats.length;i++){const sat=sats[i];const gx=Math.round(sat.dx/G),gy=Math.round(sat.dy/G);if(canFuse(PORTE,0,0,sat,gx,gy)){triggerFusion(mod(currentIdx),i);return;}}updateCanFuse();}
 
-            // Click to select
-            anchor.addEventListener('pointerdown', (e) => {
-                e.stopPropagation();
-                selectCube(idx);
-                pointerStart = { x: e.clientX, y: e.clientY };
-                pointerMoved = false;
-                pointerOnCube = true;
-            });
+function triggerFusion(tabIdx,satIdx){
+    busy=true;
+    const sats=TABLEAUX[tabIdx].sats,sat=sats[satIdx];
+    const gx=Math.round(sat.dx/G),gy=Math.round(sat.dy/G);
+    const result=fusionResult(sat,gx,gy,PORTE,0,0);
+    if(frontSatEls[satIdx])frontSatEls[satIdx].classList.add('fusing');
+    setTimeout(()=>{
+        PORTE.t=result.t;PORTE.b=result.b;PORTE.rotation=result.rotation;PORTE.state=result.state;
+        sats.splice(satIdx,1);
+        assignAll();updateUI();
+        faceEls.front.classList.add('porte-flash');
+        setTimeout(()=>faceEls.front.classList.remove('porte-flash'),400);
+        // Cascade UNIQUEMENT si on est toujours sur le même tableau
+        const stillSameTab = mod(currentIdx) === tabIdx;
+        busy=false;
+        if(stillSameTab) setTimeout(checkAutoFuse,150);
+    },420);
+}
 
-            cubes.push(state);
-        });
+function checkVictory(){if(TABLEAUX.every(t=>t.sats.length===0)){setTimeout(()=>{document.getElementById('victorySub').textContent=`${moveCount} coups — Porte ${PORTE.state}`;document.getElementById('victory').classList.add('show');},500);}}
 
-        // ═══════════════════════════════════
-        //  SELECTION
-        // ═══════════════════════════════════
-        let selectedIdx = 0;
-        let transitioning = false;
+// ═══ DRAG / SWAP ═══
+function currentSatsWithPos(){return TABLEAUX[mod(currentIdx)].sats.map((sat,i)=>({sat,el:frontSatEls[i],gx:Math.round(sat.dx/G),gy:Math.round(sat.dy/G),idx:i}));}
+function getAdjacentTargets(srcType,srcGx,srcGy){const sats=currentSatsWithPos(),targets=[];if(srcType==='sat'){sats.forEach(s=>{if(s.gx===srcGx&&s.gy===srcGy)return;if(Math.abs(s.gx-srcGx)+Math.abs(s.gy-srcGy)===1)targets.push({type:'sat',entry:s});});if(Math.abs(srcGx)+Math.abs(srcGy)===1)targets.push({type:'porte',entry:null});}else{sats.forEach(s=>{if(Math.abs(s.gx)+Math.abs(s.gy)===1)targets.push({type:'sat',entry:s});});}return targets;}
+function findBestTarget(targets,cx,cy,dx,dy){const len=Math.hypot(dx,dy);if(len<1)return null;const dX=dx/len,dY=dy/len;let best=null,bDot=0.3;for(const t of targets){const el=t.type==='porte'?cubeEl:t.entry.el;if(!el)continue;const r=el.getBoundingClientRect();if(r.width<2)continue;const tx=r.left+r.width/2,ty=r.top+r.height/2,ddx=tx-cx,ddy=ty-cy,d=Math.hypot(ddx,ddy);if(d<1)continue;const dot=(ddx*dX+ddy*dY)/d;if(dot>bDot){bDot=dot;best={...t,el,screenCx:tx,screenCy:ty};}}return best;}
+function createGhost(el){const r=el.getBoundingClientRect();const g=el.cloneNode(true);g.id='';const cs=getComputedStyle(el);g.style.cssText=`position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;margin:0;transform:none;z-index:9999;pointer-events:none;border-radius:10px;overflow:hidden;border:${cs.border};box-shadow:${cs.boxShadow};background:${cs.background||'#0e0f18'};`;document.body.appendChild(g);return{ghost:g,baseX:r.left,baseY:r.top};}
 
-        function selectCube(idx) {
-            cubes.forEach(c => c.anchorEl.classList.remove('selected'));
-            selectedIdx = idx;
-            cubes[idx].anchorEl.classList.add('selected');
-            updateInfo();
-            updateHighlight();
-        }
+function doSwap(src,dst){
+    if(src.type==='sat'&&dst.type==='sat'){const s=src.entry.sat,d=dst.entry.sat;const st=s.t,sb=s.b,sr=s.rotation,ss=s.state;s.t=d.t;s.b=d.b;s.rotation=d.rotation;s.state=d.state;d.t=st;d.b=sb;d.rotation=sr;d.state=ss;}
+    else if(src.type==='sat'&&dst.type==='porte'){const s=src.entry.sat;const pt=PORTE.t,pb=PORTE.b,pr=PORTE.rotation,ps=PORTE.state;PORTE.t=s.t;PORTE.b=s.b;PORTE.rotation=s.rotation;PORTE.state=s.state;s.t=pt;s.b=pb;s.rotation=pr;s.state=ps;}
+    else if(src.type==='porte'&&dst.type==='sat'){const d=dst.entry.sat;const pt=PORTE.t,pb=PORTE.b,pr=PORTE.rotation,ps=PORTE.state;PORTE.t=d.t;PORTE.b=d.b;PORTE.rotation=d.rotation;PORTE.state=d.state;d.t=pt;d.b=pb;d.rotation=pr;d.state=ps;}
+    moveCount++;assignAll();updateUI();setTimeout(checkAutoFuse,80);
+}
 
-        function updateInfo() {
-            const c = cubes[selectedIdx];
-            cubeLabel.textContent = `${selectedIdx + 1}/${NUM_CUBES}`;
-            posLabel.textContent = `${c.col},${c.row}`;
-            faceLabel.textContent = detectFace(c.targetMat);
-        }
+function cleanupDrag(){if(!drag)return;if(drag.srcGhost)drag.srcGhost.ghost.remove();if(drag.tgtGhost)drag.tgtGhost.ghost.remove();if(drag.srcEl)drag.srcEl.style.opacity='';if(drag.tgtEl){drag.tgtEl.style.opacity='';drag.tgtEl.style.outline='';}}
 
-        function updateHighlight() {
-            cells.forEach(c => c.classList.remove('highlight'));
-            const c = cubes[selectedIdx];
-            const idx = c.row * GRID + c.col;
-            if (cells[idx]) cells[idx].classList.add('highlight');
-        }
+// ═══ POINTER ═══
+let drag=null;
+scene.addEventListener('pointerdown',e=>{if(busy||isRotating)return;e.preventDefault();scene.setPointerCapture(e.pointerId);const satEl=e.target.closest('.sat');const porteHit=e.target.closest('#cube');let srcType=null,srcGx=0,srcGy=0,srcEl=null,srcEntry=null;if(satEl){const found=currentSatsWithPos().find(s=>s.el===satEl);if(!found)return;srcType='sat';srcGx=found.gx;srcGy=found.gy;srcEl=satEl;srcEntry=found;}else if(porteHit){srcType='porte';srcEl=cubeEl;}else return;const elRect=(srcType==='sat'?satEl:cubeEl).getBoundingClientRect();const clickedRight=e.clientX-elRect.left>elRect.width/2;drag={type:srcType,gx:srcGx,gy:srcGy,entry:srcEntry,srcEl,startX:e.clientX,startY:e.clientY,adjacents:getAdjacentTargets(srcType,srcGx,srcGy),committed:false,isTap:true,target:null,tgtEl:null,srcGhost:null,tgtGhost:null,dirX:0,dirY:0,fullDist:1,offset:0,srcCx:0,srcCy:0,clickedRight};});
 
-        // ═══════════════════════════════════
-        //  OCCUPANCY — check collisions
-        // ═══════════════════════════════════
-        function isOccupied(col, row, exceptIdx) {
-            return cubes.some((c, i) => i !== exceptIdx && c.col === col && c.row === row);
-        }
+scene.addEventListener('pointermove',e=>{if(!drag)return;e.preventDefault();const dx=e.clientX-drag.startX,dy=e.clientY-drag.startY,dist=Math.hypot(dx,dy);if(dist>8)drag.isTap=false;if(!drag.committed){if(dist<12)return;if(drag.adjacents.length>0){const r=drag.srcEl.getBoundingClientRect();drag.srcCx=r.left+r.width/2;drag.srcCy=r.top+r.height/2;const best=findBestTarget(drag.adjacents,drag.srcCx,drag.srcCy,dx,dy);if(best){drag.committed=true;drag.target=best;drag.tgtEl=best.el;drag.fullDist=Math.max(Math.hypot(best.screenCx-drag.srcCx,best.screenCy-drag.srcCy),1);drag.dirX=(best.screenCx-drag.srcCx)/drag.fullDist;drag.dirY=(best.screenCy-drag.srcCy)/drag.fullDist;drag.srcGhost=createGhost(drag.srcEl);drag.tgtGhost=createGhost(best.el);drag.srcEl.style.opacity='0.15';best.el.style.opacity='0.15';best.el.style.outline='2px solid rgba(126,200,227,0.5)';return;}}return;}const proj=dx*drag.dirX+dy*drag.dirY;const t=Math.max(0,Math.min(1,proj/drag.fullDist));drag.offset=t;const mx=drag.dirX*drag.fullDist*t,my=drag.dirY*drag.fullDist*t;drag.srcGhost.ghost.style.left=(drag.srcGhost.baseX+mx)+'px';drag.srcGhost.ghost.style.top=(drag.srcGhost.baseY+my)+'px';drag.tgtGhost.ghost.style.left=(drag.tgtGhost.baseX-mx)+'px';drag.tgtGhost.ghost.style.top=(drag.tgtGhost.baseY-my)+'px';});
 
-        // ═══════════════════════════════════
-        //  MOVE selected cube
-        // ═══════════════════════════════════
-        function moveSelected(dir) {
-            if (transitioning) return;
-            const c = cubes[selectedIdx];
+scene.addEventListener('pointerup',e=>{if(!drag)return;if(drag.isTap&&!drag.committed){const d=drag;drag=null;if(d.type==='porte')rotatePorte(d.clickedRight);else if(d.entry)rotateSat(d.entry.sat,d.srcEl,d.clickedRight);return;}if(!drag.committed){const dx=e.clientX-drag.startX,dy=e.clientY-drag.startY;cleanupDrag();drag=null;if(Math.abs(dx)>30&&Math.abs(dx)>Math.abs(dy)*1.2)cubeNav(dx<0?1:-1);return;}if(drag.offset>0.35){const src={type:drag.type,entry:drag.entry},dst={type:drag.target.type,entry:drag.target.entry};cleanupDrag();drag=null;doSwap(src,dst);}else{const sg=drag.srcGhost,tg=drag.tgtGhost;const T='left 0.15s ease-out,top 0.15s ease-out';if(sg){sg.ghost.style.transition=T;sg.ghost.style.left=sg.baseX+'px';sg.ghost.style.top=sg.baseY+'px';}if(tg){tg.ghost.style.transition=T;tg.ghost.style.left=tg.baseX+'px';tg.ghost.style.top=tg.baseY+'px';}const d=drag;drag=null;setTimeout(()=>{if(sg)sg.ghost.remove();if(tg)tg.ghost.remove();if(d.srcEl)d.srcEl.style.opacity='';if(d.tgtEl){d.tgtEl.style.opacity='';d.tgtEl.style.outline='';}},170);}});
+scene.addEventListener('pointercancel',()=>{cleanupDrag();drag=null;});
 
-            let newCol = c.col, newRow = c.row;
-            let rotMatrix;
+let wA=0,wC=false,wT=null;
+scene.addEventListener('wheel',e=>{e.preventDefault();if(wC)return;wA+=e.deltaX||e.deltaY;clearTimeout(wT);wT=setTimeout(()=>wA=0,150);if(Math.abs(wA)>30){cubeNav(wA>0?1:-1);wA=0;wC=true;setTimeout(()=>wC=false,400);}},{passive:false});
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight')cubeNav(1);if(e.key==='ArrowLeft')cubeNav(-1);});
 
-            switch (dir) {
-                case 'right': newCol++; rotMatrix = rotYn90(); break;
-                case 'left':  newCol--; rotMatrix = rotY90();  break;
-                case 'up':    newRow--; rotMatrix = rotXn90(); break;
-                case 'down':  newRow++; rotMatrix = rotX90();  break;
-            }
-
-            // Bounds
-            if (newCol < 0 || newCol >= GRID || newRow < 0 || newRow >= GRID) return;
-            // Collision
-            if (isOccupied(newCol, newRow, selectedIdx)) return;
-
-            transitioning = true;
-            c.col = newCol;
-            c.row = newRow;
-            c.targetMat = cleanMat(mul(rotMatrix, c.targetMat));
-
-            c.cubeEl.style.transform = matToCSS(c.targetMat);
-            c.anchorEl.style.left = (c.col * STEP) + 'px';
-            c.anchorEl.style.top = (c.row * STEP) + 'px';
-
-            updateInfo();
-            updateHighlight();
-
-            glowEl.classList.remove('flash');
-            void glowEl.offsetWidth;
-            glowEl.classList.add('flash');
-
-            setTimeout(() => {
-                c.mat = c.targetMat.map(r => [...r]);
-                transitioning = false;
-            }, 550);
-        }
-
-        function spinSelected() {
-            if (transitioning) return;
-            transitioning = true;
-            const c = cubes[selectedIdx];
-            c.targetMat = cleanMat(mul(rotZn90(), c.targetMat));
-            c.cubeEl.style.transform = matToCSS(c.targetMat);
-
-            updateInfo();
-
-            glowEl.classList.remove('flash');
-            void glowEl.offsetWidth;
-            glowEl.classList.add('flash');
-
-            setTimeout(() => {
-                c.mat = c.targetMat.map(r => [...r]);
-                transitioning = false;
-            }, 550);
-        }
-
-        // ═══════════════════════════════════
-        //  INPUT
-        // ═══════════════════════════════════
-        let pointerStart = null;
-        let pointerMoved = false;
-        let pointerOnCube = false;
-
-        document.addEventListener('pointerdown', (e) => {
-            if (!pointerOnCube) {
-                pointerStart = { x: e.clientX, y: e.clientY };
-                pointerMoved = false;
-            }
-        });
-
-        document.addEventListener('pointermove', (e) => {
-            if (!pointerStart) return;
-            if (Math.hypot(e.clientX - pointerStart.x, e.clientY - pointerStart.y) > 10)
-                pointerMoved = true;
-        });
-
-        document.addEventListener('pointerup', (e) => {
-            if (!pointerStart) { pointerOnCube = false; return; }
-            const dx = e.clientX - pointerStart.x;
-            const dy = e.clientY - pointerStart.y;
-            const adx = Math.abs(dx);
-            const ady = Math.abs(dy);
-
-            if (!pointerMoved || Math.max(adx, ady) < 15) {
-                if (pointerOnCube) {
-                    // Already selected via pointerdown on cube — do nothing extra
-                } else {
-                    spinSelected();
-                }
-            } else {
-                if (adx > ady) {
-                    moveSelected(dx > 0 ? 'right' : 'left');
-                } else {
-                    moveSelected(dy > 0 ? 'down' : 'up');
-                }
-            }
-            pointerStart = null;
-            pointerOnCube = false;
-        });
-
-        document.addEventListener('pointercancel', () => { pointerStart = null; pointerOnCube = false; });
-
-        // Keyboard
-        document.addEventListener('keydown', (e) => {
-            switch (e.key) {
-                case 'ArrowRight': moveSelected('right'); e.preventDefault(); break;
-                case 'ArrowLeft':  moveSelected('left');  e.preventDefault(); break;
-                case 'ArrowUp':    moveSelected('up');    e.preventDefault(); break;
-                case 'ArrowDown':  moveSelected('down');  e.preventDefault(); break;
-                case ' ':          spinSelected();        e.preventDefault(); break;
-                case 'Tab':
-                    e.preventDefault();
-                    selectCube((selectedIdx + 1) % NUM_CUBES);
-                    break;
-            }
-        });
-
-        // Init
-        selectCube(0);
-    </script>
+function resetPuzzle(){buildPuzzle();currentIdx=0;angle=0;busy=false;isRotating=false;groupEl.style.transition='none';groupEl.style.transform='rotateY(0deg)';assignAll();updateUI();void groupEl.offsetWidth;groupEl.style.transition='transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94)';}
+buildPuzzle();assignAll();updateUI();
+</script>
 </body>
 </html>
