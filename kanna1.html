@@ -276,129 +276,119 @@ const LEVEL_DEFS = [
         ];},
     },
     // ── NIVEAU 3 : BLOCAGE ──
+    // Verified fusion chain: LIN|CIR r0 → WAV|LIN → SQR|LIN → CHV|LIN → 3LI|CHV → WAV|3LI → 2PT|3LI → CIR|2PT → 2CI|2PT → SQR|2CI
     {
         name: 'Blocage',
-        sub: 'Parasites & ordre imposé',
-        desc: 'Des satellites "parasites" occupent les positions clés sans pouvoir fuser. Swappez-les pour libérer la place. L\'ordre de fusion compte — un mauvais choix bloque la suite.',
-        techs: [{t:'Rotation',new:false},{t:'Swap',new:false},{t:'Sat parasite',new:true},{t:'Ordre de fusion',new:true}],
+        sub: 'Parasites & rotation forcée',
+        desc: 'Des satellites "parasites" bloquent les positions sans pouvoir fuser. Tournez-les pour les transformer en fusion valide. L\'ordre et la rotation comptent.',
+        techs: [{t:'Rotation',new:false},{t:'Fusion',new:false},{t:'Sat parasite',new:true},{t:'Rotation forcée',new:true}],
         porte: {t:S.line,b:S.circle,rotation:0,state:'white'},
         waves: function(){return [
-            // V1: 1 parasite bloque le bas, le vrai fusible est en haut
+            // V1: sat@BOT auto-fuse (top=CIR matches bottom:CIR). Parasite@TOP [SQR|WAV] r90 — no bottom at r90.
+            // Player rotates parasite to r0 → bottom=WAV → matches new porte top:WAV → fuse!
             [
-                {t:S.circle, b:S.wave, dx:0, dy:-G, rotation:0, state:'white', from:'top'},
-                {t:S.threeLines, b:S.square, dx:0, dy:G, rotation:0, state:'white', from:'bottom'}, // parasite — aucune face ne matche
+                {t:S.circle, b:S.wave, dx:0, dy:G, rotation:0, state:'white', from:'bottom'},
+                {t:S.square, b:S.wave, dx:0, dy:-G, rotation:90, state:'white', from:'top'}, // parasite — rotate to r0 to fuse
             ],
-            // V2: 3 sats, un seul ordre marche (haut d'abord change la porte, puis droite)
+            // V2: sat@TOP auto (bottom=SQR matches top:SQR), cascade sat@BOT (top=LIN matches bottom:LIN)
             [
-                {t:S.wave, b:S.square, dx:0, dy:-G, rotation:180, state:'white', from:'top'},
-                {t:S.chevron, b:S.twoPoints, dx:G, dy:0, rotation:0, state:'white', from:'right'}, // parasite
-                {t:S.square, b:S.wave, dx:-G, dy:0, rotation:90, state:'silver', from:'left'},
+                {t:S.chevron, b:S.square, dx:0, dy:-G, rotation:0, state:'silver', from:'top'},
+                {t:S.line, b:S.threeLines, dx:0, dy:G, rotation:0, state:'silver', from:'bottom'},
             ],
-            // V3: 2 parasites sur 3, swap obligatoire entre sats
+            // V3: porte r0 has no sides. Player rotates porte to r90 → left=CHV, right=3LI.
+            // sat@LEFT auto (right=CHV matches left:CHV), cascade sat@RIGHT (left=WAV matches right:WAV? NO — right=3LI after first fuse)
+            // Actually after LEFT fuse: porte=[WAV|3LI] r90 → right=WAV. sat@RIGHT needs left=WAV.
             [
-                {t:S.twoCircles, b:S.threeLines, dx:0, dy:-G, rotation:270, state:'white', from:'top'}, // parasite
-                {t:S.chevron, b:S.line, dx:0, dy:G, rotation:0, state:'silver', from:'bottom'},
-                {t:S.square, b:S.twoPoints, dx:G, dy:0, rotation:180, state:'white', from:'right'}, // parasite
+                {t:S.wave, b:S.chevron, dx:-G, dy:0, rotation:270, state:'gold', from:'left'},
+                {t:S.wave, b:S.twoPoints, dx:G, dy:0, rotation:270, state:'gold', from:'right'},
             ],
-            // V4: 4 sats, 2 parasites, double swap nécessaire
+            // V4: porte [2PT|3LI] r90 → no top/bottom. Player rotates to r0 → top=2PT, bottom=3LI.
+            // sat@BOT auto (top=3LI matches bottom:3LI)
             [
-                {t:S.wave, b:S.circle, dx:0, dy:-G, rotation:180, state:'silver', from:'top'}, // parasite
-                {t:S.threeLines, b:S.twoCircles, dx:0, dy:G, rotation:0, state:'white', from:'bottom'}, // parasite
-                {t:S.line, b:S.wave, dx:-G, dy:0, rotation:90, state:'gold', from:'left'},
-                {t:S.circle, b:S.chevron, dx:G, dy:0, rotation:270, state:'silver', from:'right'},
+                {t:S.threeLines, b:S.circle, dx:0, dy:G, rotation:0, state:'emerald', from:'bottom'},
             ],
-            // V5: Finale — 3 sats, tout le monde fuse mais dans un seul ordre
+            // V5: porte [CIR|2PT] r0 → top=CIR, bottom=2PT.
+            // sat@TOP auto (bottom=CIR), cascade sat@BOT (top=2PT)
             [
-                {t:S.twoPoints, b:S.wave, dx:0, dy:-G, rotation:0, state:'gold', from:'top'},
-                {t:S.square, b:S.line, dx:-G, dy:0, rotation:90, state:'gold', from:'left'},
-                {t:S.chevron, b:S.circle, dx:G, dy:0, rotation:270, state:'gold', from:'right'},
+                {t:S.twoCircles, b:S.circle, dx:0, dy:-G, rotation:0, state:'emerald', from:'top'},
+                {t:S.twoPoints, b:S.square, dx:0, dy:G, rotation:0, state:'emerald', from:'bottom'},
             ],
         ];},
     },
     // ── NIVEAU 4 : INVERSION ──
+    // Each wave = 1 porte rotation + auto-fuse (or cascade of top+bottom)
     {
         name: 'Inversion',
         sub: 'Rotation de porte entre vagues',
-        desc: 'La porte doit être réorientée entre chaque vague. La fusion précédente laisse la porte dans la mauvaise position pour la suivante — anticipez la rotation.',
-        techs: [{t:'Swap',new:false},{t:'Parasites',new:false},{t:'Rotation porte anticipée',new:true},{t:'Alternance 0°/180°',new:true}],
+        desc: 'La porte doit être réorientée entre chaque vague. Après chaque fusion, la porte n\'expose plus les bonnes faces — il faut anticiper la rotation.',
+        techs: [{t:'Rotation sat',new:false},{t:'Rotation porte',new:true},{t:'Alternance directions',new:true}],
         porte: {t:S.square,b:S.twoPoints,rotation:0,state:'white'},
         waves: function(){return [
-            // V1: fuse en bas (porte 0°), résultat laisse porte à 90° → il faudra la tourner
+            // V1: sat@BOT auto (top=2PT matches bottom:2PT) → [WAV|SQR] r0
             [
-                {t:S.twoPoints, b:S.chevron, dx:0, dy:G, rotation:0, state:'white', from:'bottom'},
+                {t:S.twoPoints, b:S.wave, dx:0, dy:G, rotation:0, state:'white', from:'bottom'},
             ],
-            // V2: fuse à droite (porte doit être 270° pour exposer la bonne face)
+            // V2: porte r0→r90 → left=SQR. sat@LEFT r270 right=SQR → match → [CIR|WAV] r90
             [
-                {t:S.wave, b:S.line, dx:G, dy:0, rotation:90, state:'silver', from:'right'},
-                {t:S.circle, b:S.threeLines, dx:0, dy:-G, rotation:0, state:'white', from:'top'}, // parasite
+                {t:S.circle, b:S.square, dx:-G, dy:0, rotation:270, state:'white', from:'left'},
             ],
-            // V3: deux sats, porte doit repasser à 0° puis fuser haut, puis tourner et fuser gauche
+            // V3: porte r90→r0 → top=CIR. sat@TOP bottom=CIR → match → [LIN|WAV] r0
             [
-                {t:S.twoCircles, b:S.wave, dx:0, dy:-G, rotation:180, state:'silver', from:'top'},
-                {t:S.line, b:S.square, dx:-G, dy:0, rotation:270, state:'silver', from:'left'},
+                {t:S.line, b:S.circle, dx:0, dy:-G, rotation:0, state:'silver', from:'top'},
             ],
-            // V4: 3 sats, alternance rapide — fuser droite (90°), tourner, fuser haut (0°), tourner, fuser bas (180°)
+            // V4: porte r0→r270 → right=WAV. sat@RIGHT left=WAV → match → [CHV|LIN] r90
             [
-                {t:S.square, b:S.chevron, dx:G, dy:0, rotation:0, state:'gold', from:'right'},
-                {t:S.wave, b:S.twoPoints, dx:0, dy:-G, rotation:180, state:'silver', from:'top'},
-                {t:S.threeLines, b:S.circle, dx:0, dy:G, rotation:0, state:'gold', from:'bottom'},
+                {t:S.wave, b:S.chevron, dx:G, dy:0, rotation:270, state:'gold', from:'right'},
             ],
-            // V5: 4 côtés occupés, rotation de porte obligatoire entre chaque fusion
+            // V5: porte r90→r0 → top=CHV, bottom=LIN. sat@TOP+BOT auto cascade
             [
-                {t:S.twoPoints, b:S.wave, dx:0, dy:-G, rotation:0, state:'gold', from:'top'},
-                {t:S.line, b:S.twoCircles, dx:G, dy:0, rotation:90, state:'gold', from:'right'},
-                {t:S.chevron, b:S.square, dx:0, dy:G, rotation:180, state:'gold', from:'bottom'},
-                {t:S.circle, b:S.threeLines, dx:-G, dy:0, rotation:270, state:'emerald', from:'left'},
+                {t:S.threeLines, b:S.chevron, dx:0, dy:-G, rotation:0, state:'gold', from:'top'},
+                {t:S.line, b:S.square, dx:0, dy:G, rotation:0, state:'gold', from:'bottom'},
+            ],
+            // V6: porte [SQR|3LI] r0→r90 → left=3LI. sat@LEFT r270 right=3LI → match
+            [
+                {t:S.twoPoints, b:S.threeLines, dx:-G, dy:0, rotation:270, state:'emerald', from:'left'},
             ],
         ];},
     },
     // ── NIVEAU 5 : CONVERGENCE ──
+    // Verified: CHV|WAV r0 → CIR|CHV → LIN|CHV → WAV|CHV → 2PT|WAV → SQR|WAV → 3LI|WAV → CIR|3LI → WAV|3LI → 2CI|3LI → SQR|2CI
     {
         name: 'Convergence',
         sub: 'Tout à la fois',
-        desc: 'Toutes les techniques combinées. Parasites, swaps entre sats, rotations de porte anticipées, vagues de 4. Chaque erreur coûte des coups. Visez l\'efficacité.',
-        techs: [{t:'Parasites',new:false},{t:'Swap sat↔sat',new:false},{t:'Rotation anticipée',new:false},{t:'Vagues de 4',new:true},{t:'États mixtes',new:true}],
+        desc: 'Toutes les techniques combinées. Parasites à débloquer par rotation, rotation de porte entre les vagues, cascades. Chaque coup compte.',
+        techs: [{t:'Parasites',new:false},{t:'Rotation porte',new:false},{t:'Cascade auto',new:false},{t:'Tout combiné',new:true}],
         porte: {t:S.chevron,b:S.wave,rotation:0,state:'white'},
         waves: function(){return [
-            // V1: 3 sats, 1 parasite, swap sat↔sat pour débloquer
+            // V1: sat@BOT auto (top=WAV matches bottom:WAV) → [CIR|CHV] r0.
+            // Parasite@TOP [LIN|CIR] r90 — no bottom at r90. Rotate to r0 → bottom=CIR → matches top:CIR → fuse!
+            [
+                {t:S.wave, b:S.circle, dx:0, dy:G, rotation:0, state:'white', from:'bottom'},
+                {t:S.line, b:S.circle, dx:0, dy:-G, rotation:90, state:'white', from:'top'}, // parasite — rotate to r0
+            ],
+            // V2: sat@TOP auto (bottom=LIN matches top:LIN) → [WAV|CHV].
+            // Cascade sat@BOT (top=CHV matches bottom:CHV) → [2PT|WAV] r0.
+            // Then rotate porte to r270 → left=2PT, right=WAV. sat@LEFT (right=2PT matches left:2PT)
             [
                 {t:S.wave, b:S.line, dx:0, dy:-G, rotation:0, state:'silver', from:'top'},
-                {t:S.square, b:S.twoPoints, dx:G, dy:0, rotation:180, state:'white', from:'right'}, // parasite
-                {t:S.twoCircles, b:S.chevron, dx:0, dy:G, rotation:90, state:'white', from:'bottom'},
+                {t:S.chevron, b:S.twoPoints, dx:0, dy:G, rotation:0, state:'silver', from:'bottom'},
+                {t:S.square, b:S.twoPoints, dx:-G, dy:0, rotation:270, state:'gold', from:'left'},
             ],
-            // V2: 4 sats, 2 parasites, rotation porte nécessaire entre les 2 fusions
+            // V3: porte [SQR|WAV] r90 → left=WAV, right=SQR.
+            // sat@RIGHT auto (left=SQR matches right:SQR) → [3LI|WAV] r90.
+            // Cascade sat@LEFT (right=WAV matches left:WAV) → [CIR|3LI] r90.
+            // Parasite@TOP — porte r90 has no top. Player rotates porte to r0 → top=CIR.
+            // [WAV|CIR] r90 → rotate to r0 → bottom=CIR → matches top:CIR → fuse!
             [
-                {t:S.threeLines, b:S.circle, dx:0, dy:-G, rotation:270, state:'white', from:'top'}, // parasite
-                {t:S.line, b:S.wave, dx:G, dy:0, rotation:90, state:'gold', from:'right'},
-                {t:S.twoPoints, b:S.square, dx:0, dy:G, rotation:0, state:'silver', from:'bottom'}, // parasite
-                {t:S.circle, b:S.chevron, dx:-G, dy:0, rotation:270, state:'silver', from:'left'},
+                {t:S.square, b:S.threeLines, dx:G, dy:0, rotation:270, state:'gold', from:'right'},
+                {t:S.circle, b:S.wave, dx:-G, dy:0, rotation:270, state:'emerald', from:'left'},
+                {t:S.wave, b:S.circle, dx:0, dy:-G, rotation:90, state:'silver', from:'top'}, // parasite — rotate to r0
             ],
-            // V3: 3 sats gold/emerald, séquence swap+rotation précise
+            // V4: porte [WAV|3LI] r0. sat@TOP auto (bottom=WAV) → [2CI|3LI].
+            // Cascade sat@BOT (top=3LI) → [SQR|2CI] r0. Grand final!
             [
-                {t:S.square, b:S.twoCircles, dx:0, dy:-G, rotation:180, state:'gold', from:'top'},
-                {t:S.wave, b:S.threeLines, dx:-G, dy:0, rotation:90, state:'gold', from:'left'},
-                {t:S.chevron, b:S.line, dx:G, dy:0, rotation:0, state:'emerald', from:'right'},
-            ],
-            // V4: 4 sats occupant les 4 côtés, mix d'états, ordre critique
-            [
-                {t:S.line, b:S.twoPoints, dx:0, dy:-G, rotation:0, state:'emerald', from:'top'},
-                {t:S.twoCircles, b:S.wave, dx:G, dy:0, rotation:270, state:'gold', from:'right'},
-                {t:S.square, b:S.chevron, dx:0, dy:G, rotation:90, state:'gold', from:'bottom'},
-                {t:S.threeLines, b:S.circle, dx:-G, dy:0, rotation:180, state:'emerald', from:'left'},
-            ],
-            // V5: FINALE — 4 sats, 1 parasite, tout converge
-            [
-                {t:S.wave, b:S.square, dx:0, dy:-G, rotation:180, state:'emerald', from:'top'},
-                {t:S.chevron, b:S.twoPoints, dx:G, dy:0, rotation:0, state:'gold', from:'right'}, // parasite
-                {t:S.twoCircles, b:S.line, dx:0, dy:G, rotation:90, state:'emerald', from:'bottom'},
-                {t:S.circle, b:S.threeLines, dx:-G, dy:0, rotation:270, state:'gold', from:'left'},
-            ],
-            // V6: ULTIME — 4 sats emerald, dernier effort
-            [
-                {t:S.line, b:S.chevron, dx:0, dy:-G, rotation:0, state:'emerald', from:'top'},
-                {t:S.square, b:S.wave, dx:G, dy:0, rotation:90, state:'emerald', from:'right'},
-                {t:S.twoPoints, b:S.circle, dx:0, dy:G, rotation:180, state:'emerald', from:'bottom'},
-                {t:S.wave, b:S.twoCircles, dx:-G, dy:0, rotation:270, state:'emerald', from:'left'},
+                {t:S.twoCircles, b:S.wave, dx:0, dy:-G, rotation:0, state:'emerald', from:'top'},
+                {t:S.threeLines, b:S.square, dx:0, dy:G, rotation:0, state:'emerald', from:'bottom'},
             ],
         ];},
     },
