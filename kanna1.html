@@ -120,8 +120,9 @@
     </div>
 </div>
 <div class="victory" id="victory">
-    <div class="victory-text">Résolu</div>
+    <div class="victory-text" id="victoryTitle">Résolu</div>
     <div class="victory-sub" id="victorySub"></div>
+    <button class="btn" id="nextLevelBtn" onclick="nextLevel()" style="display:none;border-color:rgba(52,211,153,0.4);color:rgba(52,211,153,0.7);">Niveau suivant ▸</button>
     <button class="btn" onclick="resetPuzzle();document.getElementById('victory').classList.remove('show');">Rejouer</button>
 </div>
 
@@ -178,70 +179,82 @@ function fusionResult(sat,sx,sy,p,px,py){
 let PORTE, TABLEAUX, moveCount;
 const TOTAL=4;
 
-// File d'attente de vagues pour T1. Chaque vague = [{domino, from:'top'|'right'|'bottom'|'left'}]
+// File d'attente de vagues pour T1
 let T1_QUEUE=[];
 let T1_WAVE_IDX=0;
+let currentLevel=1;
 
-function buildT1Queue(){
-    // ═══ SÉQUENCE T1 — 8 VAGUES VÉRIFIÉES PAR SIMULATION ═══
-    // Porte démarre [chevron|circle] r0 white
-    // Solution optimale: 23 coups au total
-    T1_QUEUE=[
-
-        // ── PHASE 1 : ÉVEIL (1 sat, gestes simples) ──
-
-        // V1: sat bas — 1 rotation CCW → fuse (1 coup)
-        // Porte expose bottom=circle, sat doit exposer top=circle
+// ═══ NIVEAU 1 — ÉVEIL (8 vagues, 23 coups optimaux) ═══
+function buildLevel1(){
+    return [
+        // ── PHASE 1 : ÉVEIL ──
         [{t:S.circle, b:S.square, dx:0, dy:G, rotation:90, state:'white', from:'bottom'}],
-
-        // V2: sat droite — rotation porte CW + sat CCW → fuse (2 coups)
-        // Apprend la rotation porte
         [{t:S.line, b:S.square, dx:G, dy:0, rotation:180, state:'white', from:'right'}],
-
-        // V3: sat gauche — 1 rotation sat CW → fuse (1 coup)
-        // Direction gauche, variété
         [{t:S.chevron, b:S.wave, dx:-G, dy:0, rotation:0, state:'white', from:'left'}],
-
-        // ── PHASE 2 : TENSION (2 sats, gestion de l'ordre) ──
-
-        // V4: haut + bas — porte CCW, sat0 CCW x2 → fuse, sat1 CCW → fuse (4 coups)
-        // Premier multi-sat, rotation porte entre fusions
+        // ── PHASE 2 : TENSION ──
         [
             {t:S.threeLines, b:S.wave, dx:0, dy:-G, rotation:180, state:'white', from:'top'},
             {t:S.line, b:S.circle, dx:0, dy:G, rotation:90, state:'white', from:'bottom'},
         ],
-
-        // V5: gauche + droite — porte CW, sat0 CW x2 → fuse, sat1 CCW x2 → fuse (5 coups)
-        // Plus exigeant: directions opposées de rotation
         [
             {t:S.threeLines, b:S.square, dx:-G, dy:0, rotation:270, state:'white', from:'left'},
             {t:S.square, b:S.wave, dx:G, dy:0, rotation:90, state:'white', from:'right'},
         ],
-
-        // ── PHASE 3 : PRESSION (silver, précision) ──
-
-        // V6: 1 sat silver en haut — porte CCW, sat CCW x2 → fuse (3 coups)
-        // Premier domino silver, concentration
+        // ── PHASE 3 : PRESSION ──
         [{t:S.twoCircles, b:S.wave, dx:0, dy:-G, rotation:180, state:'silver', from:'top'}],
-
-        // V7: 2 sats haut + bas — sat0 CW, sat1 CW → fuse séquentiel (2 coups)
-        // Rythme plus rapide, moins de rotations mais lecture précise
         [
             {t:S.twoCircles, b:S.twoPoints, dx:0, dy:-G, rotation:90, state:'white', from:'top'},
             {t:S.circle, b:S.square, dx:0, dy:G, rotation:270, state:'silver', from:'bottom'},
         ],
-
-        // ── PHASE 4 : FINALE (3 sats, multi-étapes) ──
-
-        // V8: haut + gauche + droite — 5 coups minimum
-        // Sat0 CW → fuse, porte CW, sat1 CW → fuse, sat2 CCW x2 → fuse
-        // Séquence complète qui exige planification
+        // ── PHASE 4 : FINALE ──
         [
             {t:S.square, b:S.chevron, dx:0, dy:-G, rotation:90, state:'silver', from:'top'},
             {t:S.twoPoints, b:S.line, dx:-G, dy:0, rotation:0, state:'silver', from:'left'},
             {t:S.wave, b:S.line, dx:G, dy:0, rotation:270, state:'gold', from:'right'},
         ],
     ];
+}
+
+// ═══ NIVEAU 2 — ASCENSION (5 vagues, 31 coups optimaux) ═══
+// Porte héritée: [wave|chevron] r90 cosmic
+// Swap obligatoire, 4 côtés, gold/silver partout
+function buildLevel2(){
+    return [
+        // V1: swap entre sats + rotations (4 coups)
+        [
+            {t:S.square, b:S.chevron, dx:0, dy:-G, rotation:270, state:'silver', from:'top'},
+            {t:S.wave, b:S.threeLines, dx:0, dy:G, rotation:90, state:'silver', from:'bottom'},
+        ],
+        // V2: encerclement 3 côtés — bas, gauche, droite (6 coups)
+        [
+            {t:S.threeLines, b:S.circle, dx:0, dy:G, rotation:180, state:'white', from:'bottom'},
+            {t:S.square, b:S.line, dx:-G, dy:0, rotation:0, state:'silver', from:'left'},
+            {t:S.twoPoints, b:S.line, dx:G, dy:0, rotation:270, state:'gold', from:'right'},
+        ],
+        // V3: 3 sats — haut, bas, droite — double rotation porte (7 coups)
+        [
+            {t:S.square, b:S.twoPoints, dx:0, dy:-G, rotation:180, state:'silver', from:'top'},
+            {t:S.circle, b:S.wave, dx:0, dy:G, rotation:90, state:'gold', from:'bottom'},
+            {t:S.wave, b:S.twoCircles, dx:G, dy:0, rotation:90, state:'silver', from:'right'},
+        ],
+        // V4: 3 sats — droite, gauche, haut — séquence technique (6 coups)
+        [
+            {t:S.twoCircles, b:S.chevron, dx:G, dy:0, rotation:0, state:'gold', from:'right'},
+            {t:S.square, b:S.threeLines, dx:-G, dy:0, rotation:270, state:'gold', from:'left'},
+            {t:S.wave, b:S.threeLines, dx:0, dy:-G, rotation:180, state:'silver', from:'top'},
+        ],
+        // V5: FINALE — 4 sats, les 4 côtés (8 coups)
+        [
+            {t:S.line, b:S.wave, dx:0, dy:-G, rotation:180, state:'gold', from:'top'},
+            {t:S.chevron, b:S.twoCircles, dx:0, dy:G, rotation:90, state:'gold', from:'bottom'},
+            {t:S.line, b:S.square, dx:-G, dy:0, rotation:270, state:'silver', from:'left'},
+            {t:S.circle, b:S.square, dx:G, dy:0, rotation:270, state:'gold', from:'right'},
+        ],
+    ];
+}
+
+function buildT1Queue(){
+    T1_QUEUE = currentLevel===1 ? buildLevel1() : buildLevel2();
     T1_WAVE_IDX=0;
 }
 
@@ -397,7 +410,7 @@ function updateUI(){
     document.getElementById('moveCount').textContent=moveCount;
     const wi=document.getElementById('waveInfo');
     if(idx===0 && T1_QUEUE.length>0){
-        wi.textContent=T1_WAVE_IDX>=T1_QUEUE.length?'Vagues ✓':`Vague ${T1_WAVE_IDX}/${T1_QUEUE.length}`;
+        wi.textContent=T1_WAVE_IDX>=T1_QUEUE.length?`Niv.${currentLevel} ✓`:`Niv.${currentLevel} · Vague ${T1_WAVE_IDX}/${T1_QUEUE.length}`;
     } else { wi.textContent=''; }
     checkVictory();
 }
@@ -452,7 +465,31 @@ function triggerFusion(tabIdx,satIdx){
 function checkVictory(){
     const t1Done = TABLEAUX[0].sats.length===0 && T1_WAVE_IDX>=T1_QUEUE.length;
     const othersDone = TABLEAUX.slice(1).every(t=>t.sats.length===0);
-    if(t1Done && othersDone){setTimeout(()=>{document.getElementById('victorySub').textContent=`${moveCount} coups — Porte ${PORTE.state}`;document.getElementById('victory').classList.add('show');},500);}
+    if(t1Done && othersDone){
+        setTimeout(()=>{
+            const v=document.getElementById('victory');
+            document.getElementById('victorySub').textContent=`${moveCount} coups — Porte ${PORTE.state}`;
+            document.getElementById('victoryTitle').textContent=currentLevel===1?'Niveau 1 — Résolu':'Niveau 2 — Résolu';
+            const nextBtn=document.getElementById('nextLevelBtn');
+            nextBtn.style.display=currentLevel<2?'inline-block':'none';
+            v.classList.add('show');
+        },500);
+    }
+}
+
+function nextLevel(){
+    document.getElementById('victory').classList.remove('show');
+    currentLevel=2;
+    // Porte héritée du niveau 1 — on ne la reset pas
+    TABLEAUX[0].sats=[];
+    moveCount=0;
+    buildT1Queue();
+    currentIdx=0;angle=0;busy=false;isRotating=false;
+    groupEl.style.transition='none';groupEl.style.transform='rotateY(0deg)';
+    assignAll();updateUI();
+    void groupEl.offsetWidth;
+    groupEl.style.transition='transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94)';
+    setTimeout(spawnWave,400);
 }
 
 // ═══ DRAG / SWAP ═══
@@ -483,7 +520,7 @@ let wA=0,wC=false,wT=null;
 scene.addEventListener('wheel',e=>{e.preventDefault();if(wC)return;wA+=e.deltaX||e.deltaY;clearTimeout(wT);wT=setTimeout(()=>wA=0,150);if(Math.abs(wA)>30){cubeNav(wA>0?1:-1);wA=0;wC=true;setTimeout(()=>wC=false,400);}},{passive:false});
 document.addEventListener('keydown',e=>{if(e.key==='ArrowRight')cubeNav(1);if(e.key==='ArrowLeft')cubeNav(-1);});
 
-function resetPuzzle(){buildPuzzle();currentIdx=0;angle=0;busy=false;isRotating=false;groupEl.style.transition='none';groupEl.style.transform='rotateY(0deg)';assignAll();updateUI();void groupEl.offsetWidth;groupEl.style.transition='transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94)';setTimeout(spawnWave,400);}
+function resetPuzzle(){currentLevel=1;buildPuzzle();currentIdx=0;angle=0;busy=false;isRotating=false;groupEl.style.transition='none';groupEl.style.transform='rotateY(0deg)';assignAll();updateUI();void groupEl.offsetWidth;groupEl.style.transition='transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94)';setTimeout(spawnWave,400);}
 buildPuzzle();assignAll();updateUI();setTimeout(spawnWave,600);
 </script>
 </body>
