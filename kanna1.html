@@ -183,32 +183,32 @@ let T1_QUEUE=[];
 let T1_WAVE_IDX=0;
 
 function buildT1Queue(){
-    // Vague initiale (déjà sur le plateau au départ)
-    // Puis vagues successives qui arrivent après chaque fusion
+    // Séquence vérifiée: chaque fusion s'enchaîne automatiquement
+    // Porte initiale: [chevron|circle] rot=0
+    // F1→silver, F2→gold, F3→emerald, F4→cosmic, F5+F6 cosmic
     T1_QUEUE=[
-        // Vague 1 : 2 dominos arrivent (droite + bas)
+        // Vague 1 : 1 domino (slide du bas, se place en bas)
+        // Porte après F1: [wave|circle] rot=0, bottom=circle → sat.t=circle
         [
-            {t:S.wave,b:S.square, dx:G,dy:0, rotation:0, state:'white', from:'right'},
-            {t:S.chevron,b:S.line, dx:0,dy:G, rotation:0, state:'white', from:'bottom'},
+            {t:S.circle, b:S.square, dx:0, dy:G, rotation:0, state:'white', from:'bottom'},
         ],
-        // Vague 2 : 1 domino (gauche)
+        // Vague 2 : 2 dominos (slide gauche→haut, slide droite→haut)
+        // Porte après F2: [square|wave] rot=0, top=square → sat.b=square
+        // Le 2ème domino est en attente en bas, ne fusionne pas encore
         [
-            {t:S.circle,b:S.chevron, dx:-G,dy:0, rotation:0, state:'white', from:'left'},
+            {t:S.line, b:S.square, dx:0, dy:-G, rotation:0, state:'white', from:'left'},
         ],
-        // Vague 3 : 3 dominos (haut + droite + bas)
+        // Vague 3 : 2 dominos (slide droite→bas + slide haut pour déco)
+        // Porte après F3: [line|wave] rot=0, bottom=wave → sat.t=wave
         [
-            {t:S.twoPoints,b:S.line, dx:0,dy:-G, rotation:0, state:'white', from:'top'},
-            {t:S.threeLines,b:S.wave, dx:G,dy:0, rotation:90, state:'white', from:'right'},
-            {t:S.square,b:S.circle, dx:0,dy:G, rotation:0, state:'white', from:'bottom'},
+            {t:S.wave, b:S.threeLines, dx:0, dy:G, rotation:0, state:'white', from:'right'},
+            {t:S.twoPoints, b:S.threeLines, dx:0, dy:-G, rotation:0, state:'white', from:'top'},
         ],
-        // Vague 4 : 2 dominos (gauche + haut)
+        // Vague 4 : 1 domino final (slide du bas)
+        // Porte après F4: [threeLines|line] rot=0 → F5 auto (haut: sat.b=threeLines ✓)
+        // Porte après F5: [twoPoints|line] rot=0, bottom=line → sat.t=line
         [
-            {t:S.line,b:S.twoCircles, dx:-G,dy:0, rotation:90, state:'white', from:'left'},
-            {t:S.wave,b:S.chevron, dx:0,dy:-G, rotation:0, state:'white', from:'top'},
-        ],
-        // Vague 5 : 1 domino final (droite)
-        [
-            {t:S.twoCircles,b:S.threeLines, dx:G,dy:0, rotation:0, state:'white', from:'right'},
+            {t:S.line, b:S.twoCircles, dx:0, dy:G, rotation:0, state:'white', from:'bottom'},
         ],
     ];
     T1_WAVE_IDX=0;
@@ -271,8 +271,8 @@ function buildPuzzle(){
     PORTE={t:S.chevron,b:S.circle,rotation:0,state:'white'};
     TABLEAUX=[
         {name:'T1 — Éveil',sats:[
-            // Seulement le premier domino au départ
-            {t:S.line,b:S.threeLines,dx:0,dy:-G,rotation:0,state:'white'},
+            // Sat initial: auto-fuse avec porte [chevron|circle] via top=chevron
+            {t:S.wave,b:S.chevron,dx:0,dy:-G,rotation:0,state:'white'},
         ]},
         {name:'T2 — Passage',sats:[
             {t:S.wave,b:S.chevron,dx:0,dy:-G,rotation:90,state:'white'},
