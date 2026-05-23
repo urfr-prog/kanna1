@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Domino Cube — V2</title>
+    <title>Domino Cube — V2 Waves</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         :root { --C:80px; --R:10px; --bg:#0c0d14; --bg2:#0e0f18; }
@@ -66,6 +66,9 @@
 
         .sat.can-fuse,.face.can-fuse { border-color:rgba(52,211,153,0.7)!important; box-shadow:0 0 22px rgba(52,211,153,0.25),inset 0 0 14px rgba(52,211,153,0.05)!important; }
 
+        .sat.slide-in { transition:transform 0.5s cubic-bezier(0.16,1,0.3,1), opacity 0.4s ease-out; }
+        .sat.slide-start { opacity:0; }
+
         @keyframes fuseFlash{0%{opacity:1;filter:brightness(1);}40%{opacity:1;filter:brightness(1.6);}100%{opacity:0;filter:brightness(2);transform:scale(0.3);}}
         .sat.fusing{animation:fuseFlash 0.4s ease-out forwards;pointer-events:none;}
         @keyframes porteGlow{0%{filter:brightness(1);}50%{filter:brightness(1.4);}100%{filter:brightness(1);}}
@@ -91,8 +94,8 @@
 <body>
 <div id="app">
     <div class="header">
-        <div class="title">Domino Cube — V2</div>
-        <div class="moves">Coups <b id="moveCount">0</b></div>
+        <div class="title">Domino Cube — V2 Waves</div>
+        <div class="moves">Coups <b id="moveCount">0</b> · <span id="waveInfo" style="color:rgba(52,211,153,0.5);font-size:0.55rem;"></span></div>
     </div>
     <div class="scene-wrap">
         <div class="scene" id="scene">
@@ -171,17 +174,105 @@ function fusionResult(sat,sx,sy,p,px,py){
     return{t:eS,b:eP,rotation:isH?90:0,state:newState};
 }
 
-// ═══ PUZZLE — 4×3, 12 fusions, tous solos insolubles ═══
+// ═══ PUZZLE — T1 séquencé avec vagues, T2-T4 classiques ═══
 let PORTE, TABLEAUX, moveCount;
 const TOTAL=4;
+
+// File d'attente de vagues pour T1. Chaque vague = [{domino, from:'top'|'right'|'bottom'|'left'}]
+let T1_QUEUE=[];
+let T1_WAVE_IDX=0;
+
+function buildT1Queue(){
+    // Vague initiale (déjà sur le plateau au départ)
+    // Puis vagues successives qui arrivent après chaque fusion
+    T1_QUEUE=[
+        // Vague 1 : 2 dominos arrivent (droite + bas)
+        [
+            {t:S.wave,b:S.square, dx:G,dy:0, rotation:0, state:'white', from:'right'},
+            {t:S.chevron,b:S.line, dx:0,dy:G, rotation:0, state:'white', from:'bottom'},
+        ],
+        // Vague 2 : 1 domino (gauche)
+        [
+            {t:S.circle,b:S.chevron, dx:-G,dy:0, rotation:0, state:'white', from:'left'},
+        ],
+        // Vague 3 : 3 dominos (haut + droite + bas)
+        [
+            {t:S.twoPoints,b:S.line, dx:0,dy:-G, rotation:0, state:'white', from:'top'},
+            {t:S.threeLines,b:S.wave, dx:G,dy:0, rotation:90, state:'white', from:'right'},
+            {t:S.square,b:S.circle, dx:0,dy:G, rotation:0, state:'white', from:'bottom'},
+        ],
+        // Vague 4 : 2 dominos (gauche + haut)
+        [
+            {t:S.line,b:S.twoCircles, dx:-G,dy:0, rotation:90, state:'white', from:'left'},
+            {t:S.wave,b:S.chevron, dx:0,dy:-G, rotation:0, state:'white', from:'top'},
+        ],
+        // Vague 5 : 1 domino final (droite)
+        [
+            {t:S.twoCircles,b:S.threeLines, dx:G,dy:0, rotation:0, state:'white', from:'right'},
+        ],
+    ];
+    T1_WAVE_IDX=0;
+}
+
+// Offset de départ selon la direction d'entrée (hors-champ)
+function slideOffset(from){
+    const D=G*3;
+    switch(from){
+        case 'top':    return {ox:0, oy:-D};
+        case 'bottom': return {ox:0, oy:D};
+        case 'left':   return {ox:-D, oy:0};
+        case 'right':  return {ox:D, oy:0};
+    }
+    return {ox:0,oy:0};
+}
+
+function spawnWave(){
+    if(T1_WAVE_IDX>=T1_QUEUE.length) return;
+    const wave=T1_QUEUE[T1_WAVE_IDX];
+    T1_WAVE_IDX++;
+    const tabIdx=0; // T1
+    const isFront = mod(currentIdx)===0;
+
+    wave.forEach((def,wi)=>{
+        // Créer le sat dans le data
+        const sat={t:def.t, b:def.b, dx:def.dx, dy:def.dy, rotation:def.rotation, state:def.state};
+        TABLEAUX[0].sats.push(sat);
+
+        if(isFront){
+            // Créer l'élément DOM avec position de départ hors-champ
+            const off=slideOffset(def.from);
+            const el=document.createElement('div');
+            el.className='sat '+(sat.state||'white')+' slide-start';
+            el.innerHTML=dominoSVG(sat.t,sat.b);
+            el.querySelector('svg').style.transform=`rotate(${sat.rotation}deg)`;
+            // Position initiale : hors-champ
+            el.style.transform=`rotateY(0deg) translateZ(${HALF}px) translateX(${sat.dx+off.ox}px) translateY(${sat.dy+off.oy}px)`;
+            groupEl.appendChild(el);
+            satEls.push(el);
+            frontSatEls.push(el);
+
+            // Déclencher le slide avec un délai échelonné
+            setTimeout(()=>{
+                el.classList.add('slide-in');
+                el.classList.remove('slide-start');
+                el.style.transform=`rotateY(0deg) translateZ(${HALF}px) translateX(${sat.dx}px) translateY(${sat.dy}px)`;
+            }, 50 + wi*120);
+        }
+    });
+
+    // Après le slide, vérifier les fusions
+    if(isFront){
+        const totalDelay = 50 + wave.length*120 + 500;
+        setTimeout(()=>{ updateCanFuse(); }, totalDelay);
+    }
+}
 
 function buildPuzzle(){
     PORTE={t:S.chevron,b:S.circle,rotation:0,state:'white'};
     TABLEAUX=[
         {name:'T1 — Éveil',sats:[
+            // Seulement le premier domino au départ
             {t:S.line,b:S.threeLines,dx:0,dy:-G,rotation:0,state:'white'},
-            {t:S.wave,b:S.square,dx:G,dy:0,rotation:0,state:'white'},
-            {t:S.chevron,b:S.line,dx:0,dy:G,rotation:0,state:'white'},
         ]},
         {name:'T2 — Passage',sats:[
             {t:S.wave,b:S.chevron,dx:0,dy:-G,rotation:90,state:'white'},
@@ -200,6 +291,7 @@ function buildPuzzle(){
         ]},
     ];
     moveCount=0;
+    buildT1Queue();
 }
 
 // ═══ DOM ═══
@@ -269,8 +361,12 @@ for(let i=0;i<TOTAL;i++){const d=document.createElement('div');d.className='nav-
 function updateUI(){
     const idx=mod(currentIdx);
     labelEl.textContent=TABLEAUX[idx].name;
-    dotsEl.querySelectorAll('.nav-dot').forEach((d,i)=>{d.classList.toggle('active',i===idx);d.classList.toggle('solved',TABLEAUX[i].sats.length===0);});
+    dotsEl.querySelectorAll('.nav-dot').forEach((d,i)=>{d.classList.toggle('active',i===idx);d.classList.toggle('solved', i===0 ? (TABLEAUX[0].sats.length===0 && T1_WAVE_IDX>=T1_QUEUE.length) : TABLEAUX[i].sats.length===0);});
     document.getElementById('moveCount').textContent=moveCount;
+    const wi=document.getElementById('waveInfo');
+    if(idx===0 && T1_QUEUE.length>0){
+        wi.textContent=T1_WAVE_IDX>=T1_QUEUE.length?'Vagues ✓':`Vague ${T1_WAVE_IDX}/${T1_QUEUE.length}`;
+    } else { wi.textContent=''; }
     checkVictory();
 }
 
@@ -282,7 +378,12 @@ function rotateSat(sat,el,cw){if(isRotating||busy)return;isRotating=true;sat.rot
 function rotatePorte(cw){if(isRotating||busy)return;isRotating=true;PORTE.rotation=(PORTE.rotation||0)+(cw?90:-90);moveCount++;Object.values(faceEls).forEach(f=>{f.querySelector('svg').style.transform=`rotate(${PORTE.rotation}deg)`;});setTimeout(()=>{isRotating=false;updateUI();checkAutoFuse();},280);}
 
 // ═══ FUSION AUTO ═══
-function checkAutoFuse(){if(isRotating||busy)return;const sats=TABLEAUX[mod(currentIdx)].sats;for(let i=0;i<sats.length;i++){const sat=sats[i];const gx=Math.round(sat.dx/G),gy=Math.round(sat.dy/G);if(canFuse(PORTE,0,0,sat,gx,gy)){triggerFusion(mod(currentIdx),i);return;}}updateCanFuse();}
+function checkAutoFuse(){if(isRotating||busy)return;const sats=TABLEAUX[mod(currentIdx)].sats;for(let i=0;i<sats.length;i++){const sat=sats[i];const gx=Math.round(sat.dx/G),gy=Math.round(sat.dy/G);if(canFuse(PORTE,0,0,sat,gx,gy)){triggerFusion(mod(currentIdx),i);return;}}
+    // Si T1, pas de fusion possible, et il reste des vagues → spawn
+    if(mod(currentIdx)===0 && sats.length===0 && T1_WAVE_IDX<T1_QUEUE.length){
+        setTimeout(spawnWave,300);return;
+    }
+    updateCanFuse();}
 
 function triggerFusion(tabIdx,satIdx){
     busy=true;
@@ -296,14 +397,31 @@ function triggerFusion(tabIdx,satIdx){
         assignAll();updateUI();
         faceEls.front.classList.add('porte-flash');
         setTimeout(()=>faceEls.front.classList.remove('porte-flash'),400);
-        // Cascade UNIQUEMENT si on est toujours sur le même tableau
         const stillSameTab = mod(currentIdx) === tabIdx;
         busy=false;
-        if(stillSameTab) setTimeout(checkAutoFuse,150);
+        if(stillSameTab){
+            // Vérifier d'abord les cascades, sinon spawn vague T1
+            const hasCascade = TABLEAUX[tabIdx].sats.some((s,i)=>{
+                const sx=Math.round(s.dx/G),sy=Math.round(s.dy/G);
+                return canFuse(PORTE,0,0,s,sx,sy);
+            });
+            if(hasCascade){
+                setTimeout(checkAutoFuse,150);
+            } else if(tabIdx===0 && T1_WAVE_IDX<T1_QUEUE.length){
+                // Pas de cascade, on spawn la vague suivante
+                setTimeout(spawnWave,300);
+            } else {
+                updateCanFuse();
+            }
+        }
     },420);
 }
 
-function checkVictory(){if(TABLEAUX.every(t=>t.sats.length===0)){setTimeout(()=>{document.getElementById('victorySub').textContent=`${moveCount} coups — Porte ${PORTE.state}`;document.getElementById('victory').classList.add('show');},500);}}
+function checkVictory(){
+    const t1Done = TABLEAUX[0].sats.length===0 && T1_WAVE_IDX>=T1_QUEUE.length;
+    const othersDone = TABLEAUX.slice(1).every(t=>t.sats.length===0);
+    if(t1Done && othersDone){setTimeout(()=>{document.getElementById('victorySub').textContent=`${moveCount} coups — Porte ${PORTE.state}`;document.getElementById('victory').classList.add('show');},500);}
+}
 
 // ═══ DRAG / SWAP ═══
 function currentSatsWithPos(){return TABLEAUX[mod(currentIdx)].sats.map((sat,i)=>({sat,el:frontSatEls[i],gx:Math.round(sat.dx/G),gy:Math.round(sat.dy/G),idx:i}));}
