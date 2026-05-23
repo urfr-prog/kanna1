@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Domino Cube — V2 Waves</title>
+    <title>Domino Cube — V5 Levels</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         :root { --C:80px; --R:10px; --bg:#0c0d14; --bg2:#0e0f18; }
@@ -14,6 +14,27 @@
         .title { font-size:0.6rem; letter-spacing:0.25em; text-transform:uppercase; color:rgba(126,200,227,0.3); }
         .moves { font-size:0.65rem; color:rgba(126,200,227,0.3); letter-spacing:0.1em; }
         .moves b { color:rgba(126,200,227,0.6); font-weight:500; }
+
+        /* ═══ LEVEL SELECTOR ═══ */
+        .level-bar { flex-shrink:0; display:flex; align-items:center; gap:6px; padding:6px 16px 4px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+        .level-bar::-webkit-scrollbar { display:none; }
+        .lvl-btn { flex-shrink:0; padding:4px 10px; border-radius:5px; font-size:0.55rem; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; transition:all 0.25s; border:1px solid rgba(126,200,227,0.12); background:transparent; color:rgba(126,200,227,0.3); white-space:nowrap; }
+        .lvl-btn:hover { border-color:rgba(126,200,227,0.3); color:rgba(126,200,227,0.5); }
+        .lvl-btn.active { border-color:rgba(52,211,153,0.6); color:rgba(52,211,153,0.8); background:rgba(52,211,153,0.06); }
+        .lvl-btn.completed { border-color:rgba(52,211,153,0.3); color:rgba(52,211,153,0.5); }
+        .lvl-btn.completed::after { content:'✓'; margin-left:4px; }
+
+        /* ═══ LEVEL INTRO OVERLAY ═══ */
+        .level-intro { position:fixed; inset:0; background:rgba(10,11,16,0.95); display:none; align-items:center; justify-content:center; flex-direction:column; gap:14px; z-index:90; padding:20px; }
+        .level-intro.show { display:flex; }
+        .intro-title { font-size:1rem; letter-spacing:0.3em; text-transform:uppercase; color:rgba(126,200,227,0.8); text-shadow:0 0 20px rgba(126,200,227,0.3); }
+        .intro-sub { font-size:0.65rem; color:rgba(52,211,153,0.7); letter-spacing:0.15em; text-transform:uppercase; margin-bottom:4px; }
+        .intro-desc { font-size:0.7rem; color:rgba(126,200,227,0.45); line-height:1.6; text-align:center; max-width:320px; }
+        .intro-techs { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; max-width:320px; margin-top:4px; }
+        .intro-tech { padding:3px 8px; border-radius:4px; font-size:0.5rem; letter-spacing:0.08em; text-transform:uppercase; border:1px solid rgba(126,200,227,0.15); color:rgba(126,200,227,0.4); }
+        .intro-tech.new { border-color:rgba(255,215,0,0.4); color:rgba(255,215,0,0.7); }
+        .intro-start { margin-top:10px; padding:8px 28px; border-radius:6px; font-size:0.6rem; letter-spacing:0.15em; text-transform:uppercase; cursor:pointer; border:1px solid rgba(52,211,153,0.5); color:rgba(52,211,153,0.8); background:rgba(52,211,153,0.06); transition:all 0.2s; }
+        .intro-start:hover { background:rgba(52,211,153,0.12); border-color:rgba(52,211,153,0.7); }
 
         .scene-wrap { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; }
         .scene { width:100vw; height:100vw; max-width:400px; max-height:400px; perspective:700px; position:relative; touch-action:none; }
@@ -32,7 +53,7 @@
         .sat { position:absolute; width:var(--C); height:var(--C); margin-left:calc(var(--C)/-2); margin-top:calc(var(--C)/-2); border-radius:var(--R); overflow:hidden; backface-visibility:hidden; background:var(--bg2); cursor:pointer; transition:border-color 0.3s,box-shadow 0.3s; }
         .sat svg { width:100%; height:100%; display:block; transition:transform 0.25s cubic-bezier(0.4,0,0.2,1); }
 
-        /* ═══ ÉTATS (repris d'ADAM) ═══ */
+        /* ═══ ÉTATS ═══ */
         .sat.white,.face.white { border:1px solid rgba(180,180,190,0.35); box-shadow:none; }
         .white svg line.icon,.white svg path.icon,.white svg circle.icon,.white svg rect.icon { stroke:rgba(180,180,190,0.4); filter:none; }
         .white svg circle.point { fill:rgba(180,180,190,0.4); filter:none; }
@@ -94,9 +115,10 @@
 <body>
 <div id="app">
     <div class="header">
-        <div class="title">Domino Cube — V2 Waves</div>
+        <div class="title">Domino Cube</div>
         <div class="moves">Coups <b id="moveCount">0</b> · <span id="waveInfo" style="color:rgba(52,211,153,0.5);font-size:0.55rem;"></span></div>
     </div>
+    <div class="level-bar" id="levelBar"></div>
     <div class="scene-wrap">
         <div class="scene" id="scene">
             <div class="group" id="group">
@@ -116,18 +138,29 @@
         <div class="face-label" id="faceLabel"></div>
         <div class="fusion-info" id="fusionInfo"></div>
         <div class="nav-dots" id="navDots"></div>
-        <button class="btn" onclick="resetPuzzle()">Reset</button>
+        <button class="btn" onclick="resetCurrentLevel()">Reset</button>
     </div>
 </div>
+
+<!-- LEVEL INTRO -->
+<div class="level-intro" id="levelIntro">
+    <div class="intro-title" id="introTitle"></div>
+    <div class="intro-sub" id="introSub"></div>
+    <div class="intro-desc" id="introDesc"></div>
+    <div class="intro-techs" id="introTechs"></div>
+    <button class="intro-start" onclick="startLevel()">Commencer</button>
+</div>
+
+<!-- VICTORY -->
 <div class="victory" id="victory">
     <div class="victory-text" id="victoryTitle">Résolu</div>
     <div class="victory-sub" id="victorySub"></div>
-    <button class="btn" id="nextLevelBtn" onclick="nextLevel()" style="display:none;border-color:rgba(52,211,153,0.4);color:rgba(52,211,153,0.7);">Niveau suivant ▸</button>
-    <button class="btn" onclick="resetPuzzle();document.getElementById('victory').classList.remove('show');">Rejouer</button>
+    <button class="btn" id="nextLevelBtn" onclick="goNextLevel()" style="display:none;border-color:rgba(52,211,153,0.4);color:rgba(52,211,153,0.7);">Niveau suivant ▸</button>
+    <button class="btn" onclick="resetCurrentLevel();document.getElementById('victory').classList.remove('show');">Rejouer</button>
 </div>
 
 <script>
-// ═══ 8 SIGLES ADAM NIVEAU 1 ═══
+// ═══ ICÔNES ═══
 const S = {
     chevron:    `<path class="icon" d="M 20 32 L 45 12 L 70 32"/>`,
     circle:     `<circle class="icon" cx="45" cy="22" r="12"/>`,
@@ -169,174 +202,288 @@ function fusionResult(sat,sx,sy,p,px,py){
     const d=dirD(px-sx,py-sy),o=dirO(d);
     const eS=getExposed(sat,dirO(d)),eP=getExposed(p,dirO(o));
     const isH=(d==='left'||d==='right');
-    // État : monte d'un cran
     const maxSt=Math.max(STATES.indexOf(sat.state||'white'),STATES.indexOf(p.state||'white'));
     const newState=STATES[Math.min(maxSt+1,STATES.length-1)];
     return{t:eS,b:eP,rotation:isH?90:0,state:newState};
 }
 
-// ═══ PUZZLE — T1 séquencé avec vagues, T2-T4 classiques ═══
+// ═══ LEVEL DEFINITIONS ═══
+const LEVEL_DEFS = [
+    // ── NIVEAU 1 : ÉVEIL ──
+    {
+        name: 'Éveil',
+        sub: 'Les bases',
+        desc: 'Apprenez à fusionner. Chaque satellite a deux faces — alignez la bonne face avec la porte pour déclencher la fusion. Tap = rotation, swipe = swap.',
+        techs: [{t:'Rotation',new:false},{t:'Fusion simple',new:true}],
+        porte: {t:S.chevron,b:S.circle,rotation:0,state:'white'},
+        waves: function(){return [
+            [{t:S.circle, b:S.square, dx:0, dy:G, rotation:90, state:'white', from:'bottom'}],
+            [{t:S.line, b:S.square, dx:G, dy:0, rotation:180, state:'white', from:'right'}],
+            [{t:S.chevron, b:S.wave, dx:-G, dy:0, rotation:0, state:'white', from:'left'}],
+            [
+                {t:S.threeLines, b:S.wave, dx:0, dy:-G, rotation:180, state:'white', from:'top'},
+                {t:S.line, b:S.circle, dx:0, dy:G, rotation:90, state:'white', from:'bottom'},
+            ],
+            [
+                {t:S.threeLines, b:S.square, dx:-G, dy:0, rotation:270, state:'white', from:'left'},
+                {t:S.square, b:S.wave, dx:G, dy:0, rotation:90, state:'white', from:'right'},
+            ],
+            [{t:S.twoCircles, b:S.wave, dx:0, dy:-G, rotation:180, state:'silver', from:'top'}],
+            [
+                {t:S.twoCircles, b:S.twoPoints, dx:0, dy:-G, rotation:90, state:'white', from:'top'},
+                {t:S.circle, b:S.square, dx:0, dy:G, rotation:270, state:'silver', from:'bottom'},
+            ],
+            [
+                {t:S.square, b:S.chevron, dx:0, dy:-G, rotation:90, state:'silver', from:'top'},
+                {t:S.twoPoints, b:S.line, dx:-G, dy:0, rotation:0, state:'silver', from:'left'},
+                {t:S.wave, b:S.line, dx:G, dy:0, rotation:270, state:'gold', from:'right'},
+            ],
+        ];},
+    },
+    // ── NIVEAU 2 : ASCENSION ──
+    {
+        name: 'Ascension',
+        sub: 'Swap obligatoire',
+        desc: 'Les satellites n\'alignent plus directement — il faut swapper avec la porte ou entre satellites pour trouver la bonne combinaison avant de fuser.',
+        techs: [{t:'Rotation',new:false},{t:'Fusion',new:false},{t:'Swap ↔ Porte',new:true},{t:'Swap ↔ Sat',new:true}],
+        porte: {t:S.wave,b:S.chevron,rotation:90,state:'silver'},
+        waves: function(){return [
+            [
+                {t:S.square, b:S.chevron, dx:0, dy:-G, rotation:270, state:'silver', from:'top'},
+                {t:S.wave, b:S.threeLines, dx:0, dy:G, rotation:90, state:'silver', from:'bottom'},
+            ],
+            [
+                {t:S.threeLines, b:S.circle, dx:0, dy:G, rotation:180, state:'white', from:'bottom'},
+                {t:S.square, b:S.line, dx:-G, dy:0, rotation:0, state:'silver', from:'left'},
+                {t:S.twoPoints, b:S.line, dx:G, dy:0, rotation:270, state:'gold', from:'right'},
+            ],
+            [
+                {t:S.square, b:S.twoPoints, dx:0, dy:-G, rotation:180, state:'silver', from:'top'},
+                {t:S.circle, b:S.wave, dx:0, dy:G, rotation:90, state:'gold', from:'bottom'},
+                {t:S.wave, b:S.twoCircles, dx:G, dy:0, rotation:90, state:'silver', from:'right'},
+            ],
+            [
+                {t:S.twoCircles, b:S.chevron, dx:G, dy:0, rotation:0, state:'gold', from:'right'},
+                {t:S.square, b:S.threeLines, dx:-G, dy:0, rotation:270, state:'gold', from:'left'},
+                {t:S.wave, b:S.threeLines, dx:0, dy:-G, rotation:180, state:'silver', from:'top'},
+            ],
+            [
+                {t:S.line, b:S.wave, dx:0, dy:-G, rotation:180, state:'gold', from:'top'},
+                {t:S.chevron, b:S.twoCircles, dx:0, dy:G, rotation:90, state:'gold', from:'bottom'},
+                {t:S.line, b:S.square, dx:-G, dy:0, rotation:270, state:'silver', from:'left'},
+                {t:S.circle, b:S.square, dx:G, dy:0, rotation:270, state:'gold', from:'right'},
+            ],
+        ];},
+    },
+    // ── NIVEAU 3 : BLOCAGE ──
+    {
+        name: 'Blocage',
+        sub: 'Parasites & ordre imposé',
+        desc: 'Des satellites "parasites" occupent les positions clés sans pouvoir fuser. Swappez-les pour libérer la place. L\'ordre de fusion compte — un mauvais choix bloque la suite.',
+        techs: [{t:'Rotation',new:false},{t:'Swap',new:false},{t:'Sat parasite',new:true},{t:'Ordre de fusion',new:true}],
+        porte: {t:S.line,b:S.circle,rotation:0,state:'white'},
+        waves: function(){return [
+            // V1: 1 parasite bloque le bas, le vrai fusible est en haut
+            [
+                {t:S.circle, b:S.wave, dx:0, dy:-G, rotation:0, state:'white', from:'top'},
+                {t:S.threeLines, b:S.square, dx:0, dy:G, rotation:0, state:'white', from:'bottom'}, // parasite — aucune face ne matche
+            ],
+            // V2: 3 sats, un seul ordre marche (haut d'abord change la porte, puis droite)
+            [
+                {t:S.wave, b:S.square, dx:0, dy:-G, rotation:180, state:'white', from:'top'},
+                {t:S.chevron, b:S.twoPoints, dx:G, dy:0, rotation:0, state:'white', from:'right'}, // parasite
+                {t:S.square, b:S.wave, dx:-G, dy:0, rotation:90, state:'silver', from:'left'},
+            ],
+            // V3: 2 parasites sur 3, swap obligatoire entre sats
+            [
+                {t:S.twoCircles, b:S.threeLines, dx:0, dy:-G, rotation:270, state:'white', from:'top'}, // parasite
+                {t:S.chevron, b:S.line, dx:0, dy:G, rotation:0, state:'silver', from:'bottom'},
+                {t:S.square, b:S.twoPoints, dx:G, dy:0, rotation:180, state:'white', from:'right'}, // parasite
+            ],
+            // V4: 4 sats, 2 parasites, double swap nécessaire
+            [
+                {t:S.wave, b:S.circle, dx:0, dy:-G, rotation:180, state:'silver', from:'top'}, // parasite
+                {t:S.threeLines, b:S.twoCircles, dx:0, dy:G, rotation:0, state:'white', from:'bottom'}, // parasite
+                {t:S.line, b:S.wave, dx:-G, dy:0, rotation:90, state:'gold', from:'left'},
+                {t:S.circle, b:S.chevron, dx:G, dy:0, rotation:270, state:'silver', from:'right'},
+            ],
+            // V5: Finale — 3 sats, tout le monde fuse mais dans un seul ordre
+            [
+                {t:S.twoPoints, b:S.wave, dx:0, dy:-G, rotation:0, state:'gold', from:'top'},
+                {t:S.square, b:S.line, dx:-G, dy:0, rotation:90, state:'gold', from:'left'},
+                {t:S.chevron, b:S.circle, dx:G, dy:0, rotation:270, state:'gold', from:'right'},
+            ],
+        ];},
+    },
+    // ── NIVEAU 4 : INVERSION ──
+    {
+        name: 'Inversion',
+        sub: 'Rotation de porte entre vagues',
+        desc: 'La porte doit être réorientée entre chaque vague. La fusion précédente laisse la porte dans la mauvaise position pour la suivante — anticipez la rotation.',
+        techs: [{t:'Swap',new:false},{t:'Parasites',new:false},{t:'Rotation porte anticipée',new:true},{t:'Alternance 0°/180°',new:true}],
+        porte: {t:S.square,b:S.twoPoints,rotation:0,state:'white'},
+        waves: function(){return [
+            // V1: fuse en bas (porte 0°), résultat laisse porte à 90° → il faudra la tourner
+            [
+                {t:S.twoPoints, b:S.chevron, dx:0, dy:G, rotation:0, state:'white', from:'bottom'},
+            ],
+            // V2: fuse à droite (porte doit être 270° pour exposer la bonne face)
+            [
+                {t:S.wave, b:S.line, dx:G, dy:0, rotation:90, state:'silver', from:'right'},
+                {t:S.circle, b:S.threeLines, dx:0, dy:-G, rotation:0, state:'white', from:'top'}, // parasite
+            ],
+            // V3: deux sats, porte doit repasser à 0° puis fuser haut, puis tourner et fuser gauche
+            [
+                {t:S.twoCircles, b:S.wave, dx:0, dy:-G, rotation:180, state:'silver', from:'top'},
+                {t:S.line, b:S.square, dx:-G, dy:0, rotation:270, state:'silver', from:'left'},
+            ],
+            // V4: 3 sats, alternance rapide — fuser droite (90°), tourner, fuser haut (0°), tourner, fuser bas (180°)
+            [
+                {t:S.square, b:S.chevron, dx:G, dy:0, rotation:0, state:'gold', from:'right'},
+                {t:S.wave, b:S.twoPoints, dx:0, dy:-G, rotation:180, state:'silver', from:'top'},
+                {t:S.threeLines, b:S.circle, dx:0, dy:G, rotation:0, state:'gold', from:'bottom'},
+            ],
+            // V5: 4 côtés occupés, rotation de porte obligatoire entre chaque fusion
+            [
+                {t:S.twoPoints, b:S.wave, dx:0, dy:-G, rotation:0, state:'gold', from:'top'},
+                {t:S.line, b:S.twoCircles, dx:G, dy:0, rotation:90, state:'gold', from:'right'},
+                {t:S.chevron, b:S.square, dx:0, dy:G, rotation:180, state:'gold', from:'bottom'},
+                {t:S.circle, b:S.threeLines, dx:-G, dy:0, rotation:270, state:'emerald', from:'left'},
+            ],
+        ];},
+    },
+    // ── NIVEAU 5 : CONVERGENCE ──
+    {
+        name: 'Convergence',
+        sub: 'Tout à la fois',
+        desc: 'Toutes les techniques combinées. Parasites, swaps entre sats, rotations de porte anticipées, vagues de 4. Chaque erreur coûte des coups. Visez l\'efficacité.',
+        techs: [{t:'Parasites',new:false},{t:'Swap sat↔sat',new:false},{t:'Rotation anticipée',new:false},{t:'Vagues de 4',new:true},{t:'États mixtes',new:true}],
+        porte: {t:S.chevron,b:S.wave,rotation:0,state:'white'},
+        waves: function(){return [
+            // V1: 3 sats, 1 parasite, swap sat↔sat pour débloquer
+            [
+                {t:S.wave, b:S.line, dx:0, dy:-G, rotation:0, state:'silver', from:'top'},
+                {t:S.square, b:S.twoPoints, dx:G, dy:0, rotation:180, state:'white', from:'right'}, // parasite
+                {t:S.twoCircles, b:S.chevron, dx:0, dy:G, rotation:90, state:'white', from:'bottom'},
+            ],
+            // V2: 4 sats, 2 parasites, rotation porte nécessaire entre les 2 fusions
+            [
+                {t:S.threeLines, b:S.circle, dx:0, dy:-G, rotation:270, state:'white', from:'top'}, // parasite
+                {t:S.line, b:S.wave, dx:G, dy:0, rotation:90, state:'gold', from:'right'},
+                {t:S.twoPoints, b:S.square, dx:0, dy:G, rotation:0, state:'silver', from:'bottom'}, // parasite
+                {t:S.circle, b:S.chevron, dx:-G, dy:0, rotation:270, state:'silver', from:'left'},
+            ],
+            // V3: 3 sats gold/emerald, séquence swap+rotation précise
+            [
+                {t:S.square, b:S.twoCircles, dx:0, dy:-G, rotation:180, state:'gold', from:'top'},
+                {t:S.wave, b:S.threeLines, dx:-G, dy:0, rotation:90, state:'gold', from:'left'},
+                {t:S.chevron, b:S.line, dx:G, dy:0, rotation:0, state:'emerald', from:'right'},
+            ],
+            // V4: 4 sats occupant les 4 côtés, mix d'états, ordre critique
+            [
+                {t:S.line, b:S.twoPoints, dx:0, dy:-G, rotation:0, state:'emerald', from:'top'},
+                {t:S.twoCircles, b:S.wave, dx:G, dy:0, rotation:270, state:'gold', from:'right'},
+                {t:S.square, b:S.chevron, dx:0, dy:G, rotation:90, state:'gold', from:'bottom'},
+                {t:S.threeLines, b:S.circle, dx:-G, dy:0, rotation:180, state:'emerald', from:'left'},
+            ],
+            // V5: FINALE — 4 sats, 1 parasite, tout converge
+            [
+                {t:S.wave, b:S.square, dx:0, dy:-G, rotation:180, state:'emerald', from:'top'},
+                {t:S.chevron, b:S.twoPoints, dx:G, dy:0, rotation:0, state:'gold', from:'right'}, // parasite
+                {t:S.twoCircles, b:S.line, dx:0, dy:G, rotation:90, state:'emerald', from:'bottom'},
+                {t:S.circle, b:S.threeLines, dx:-G, dy:0, rotation:270, state:'gold', from:'left'},
+            ],
+            // V6: ULTIME — 4 sats emerald, dernier effort
+            [
+                {t:S.line, b:S.chevron, dx:0, dy:-G, rotation:0, state:'emerald', from:'top'},
+                {t:S.square, b:S.wave, dx:G, dy:0, rotation:90, state:'emerald', from:'right'},
+                {t:S.twoPoints, b:S.circle, dx:0, dy:G, rotation:180, state:'emerald', from:'bottom'},
+                {t:S.wave, b:S.twoCircles, dx:-G, dy:0, rotation:270, state:'emerald', from:'left'},
+            ],
+        ];},
+    },
+];
+
+const TOTAL_LEVELS = LEVEL_DEFS.length;
+
+// ═══ GAME STATE ═══
 let PORTE, TABLEAUX, moveCount;
 const TOTAL=4;
+let T1_QUEUE=[], T1_WAVE_IDX=0;
+let currentLevel=0; // 0-indexed
+let completedLevels=new Set();
 
-// File d'attente de vagues pour T1
-let T1_QUEUE=[];
-let T1_WAVE_IDX=0;
-let currentLevel=1;
-
-// ═══ NIVEAU 1 — ÉVEIL (8 vagues, 23 coups optimaux) ═══
-function buildLevel1(){
-    return [
-        // ── PHASE 1 : ÉVEIL ──
-        [{t:S.circle, b:S.square, dx:0, dy:G, rotation:90, state:'white', from:'bottom'}],
-        [{t:S.line, b:S.square, dx:G, dy:0, rotation:180, state:'white', from:'right'}],
-        [{t:S.chevron, b:S.wave, dx:-G, dy:0, rotation:0, state:'white', from:'left'}],
-        // ── PHASE 2 : TENSION ──
-        [
-            {t:S.threeLines, b:S.wave, dx:0, dy:-G, rotation:180, state:'white', from:'top'},
-            {t:S.line, b:S.circle, dx:0, dy:G, rotation:90, state:'white', from:'bottom'},
-        ],
-        [
-            {t:S.threeLines, b:S.square, dx:-G, dy:0, rotation:270, state:'white', from:'left'},
-            {t:S.square, b:S.wave, dx:G, dy:0, rotation:90, state:'white', from:'right'},
-        ],
-        // ── PHASE 3 : PRESSION ──
-        [{t:S.twoCircles, b:S.wave, dx:0, dy:-G, rotation:180, state:'silver', from:'top'}],
-        [
-            {t:S.twoCircles, b:S.twoPoints, dx:0, dy:-G, rotation:90, state:'white', from:'top'},
-            {t:S.circle, b:S.square, dx:0, dy:G, rotation:270, state:'silver', from:'bottom'},
-        ],
-        // ── PHASE 4 : FINALE ──
-        [
-            {t:S.square, b:S.chevron, dx:0, dy:-G, rotation:90, state:'silver', from:'top'},
-            {t:S.twoPoints, b:S.line, dx:-G, dy:0, rotation:0, state:'silver', from:'left'},
-            {t:S.wave, b:S.line, dx:G, dy:0, rotation:270, state:'gold', from:'right'},
-        ],
-    ];
-}
-
-// ═══ NIVEAU 2 — ASCENSION (5 vagues, 31 coups optimaux) ═══
-// Porte héritée: [wave|chevron] r90 cosmic
-// Swap obligatoire, 4 côtés, gold/silver partout
-function buildLevel2(){
-    return [
-        // V1: swap entre sats + rotations (4 coups)
-        [
-            {t:S.square, b:S.chevron, dx:0, dy:-G, rotation:270, state:'silver', from:'top'},
-            {t:S.wave, b:S.threeLines, dx:0, dy:G, rotation:90, state:'silver', from:'bottom'},
-        ],
-        // V2: encerclement 3 côtés — bas, gauche, droite (6 coups)
-        [
-            {t:S.threeLines, b:S.circle, dx:0, dy:G, rotation:180, state:'white', from:'bottom'},
-            {t:S.square, b:S.line, dx:-G, dy:0, rotation:0, state:'silver', from:'left'},
-            {t:S.twoPoints, b:S.line, dx:G, dy:0, rotation:270, state:'gold', from:'right'},
-        ],
-        // V3: 3 sats — haut, bas, droite — double rotation porte (7 coups)
-        [
-            {t:S.square, b:S.twoPoints, dx:0, dy:-G, rotation:180, state:'silver', from:'top'},
-            {t:S.circle, b:S.wave, dx:0, dy:G, rotation:90, state:'gold', from:'bottom'},
-            {t:S.wave, b:S.twoCircles, dx:G, dy:0, rotation:90, state:'silver', from:'right'},
-        ],
-        // V4: 3 sats — droite, gauche, haut — séquence technique (6 coups)
-        [
-            {t:S.twoCircles, b:S.chevron, dx:G, dy:0, rotation:0, state:'gold', from:'right'},
-            {t:S.square, b:S.threeLines, dx:-G, dy:0, rotation:270, state:'gold', from:'left'},
-            {t:S.wave, b:S.threeLines, dx:0, dy:-G, rotation:180, state:'silver', from:'top'},
-        ],
-        // V5: FINALE — 4 sats, les 4 côtés (8 coups)
-        [
-            {t:S.line, b:S.wave, dx:0, dy:-G, rotation:180, state:'gold', from:'top'},
-            {t:S.chevron, b:S.twoCircles, dx:0, dy:G, rotation:90, state:'gold', from:'bottom'},
-            {t:S.line, b:S.square, dx:-G, dy:0, rotation:270, state:'silver', from:'left'},
-            {t:S.circle, b:S.square, dx:G, dy:0, rotation:270, state:'gold', from:'right'},
-        ],
-    ];
-}
-
-function buildT1Queue(){
-    T1_QUEUE = currentLevel===1 ? buildLevel1() : buildLevel2();
-    T1_WAVE_IDX=0;
-}
-
-// Offset de départ selon la direction d'entrée (hors-champ)
-function slideOffset(from){
-    const D=G*3;
-    switch(from){
-        case 'top':    return {ox:0, oy:-D};
-        case 'bottom': return {ox:0, oy:D};
-        case 'left':   return {ox:-D, oy:0};
-        case 'right':  return {ox:D, oy:0};
-    }
-    return {ox:0,oy:0};
-}
-
-function spawnWave(){
-    if(T1_WAVE_IDX>=T1_QUEUE.length) return;
-    // GUARD: ne spawn que si le plateau T1 est vide
-    if(TABLEAUX[0].sats.length > 0) return;
-    const wave=T1_QUEUE[T1_WAVE_IDX];
-    T1_WAVE_IDX++;
-    const tabIdx=0; // T1
-    const isFront = mod(currentIdx)===0;
-
-    wave.forEach((def,wi)=>{
-        // Créer le sat dans le data
-        const sat={t:def.t, b:def.b, dx:def.dx, dy:def.dy, rotation:def.rotation, state:def.state};
-        TABLEAUX[0].sats.push(sat);
-
-        if(isFront){
-            // Créer l'élément DOM avec position de départ hors-champ
-            const off=slideOffset(def.from);
-            const el=document.createElement('div');
-            el.className='sat '+(sat.state||'white')+' slide-start';
-            el.innerHTML=dominoSVG(sat.t,sat.b);
-            el.querySelector('svg').style.transform=`rotate(${sat.rotation}deg)`;
-            // Position initiale : hors-champ
-            el.style.transform=`rotateY(0deg) translateZ(${HALF}px) translateX(${sat.dx+off.ox}px) translateY(${sat.dy+off.oy}px)`;
-            groupEl.appendChild(el);
-            satEls.push(el);
-            frontSatEls.push(el);
-
-            // Déclencher le slide avec un délai échelonné
-            setTimeout(()=>{
-                el.classList.add('slide-in');
-                el.classList.remove('slide-start');
-                el.style.transform=`rotateY(0deg) translateZ(${HALF}px) translateX(${sat.dx}px) translateY(${sat.dy}px)`;
-            }, 50 + wi*120);
-        }
+// ═══ LEVEL BAR ═══
+const levelBarEl=document.getElementById('levelBar');
+function buildLevelBar(){
+    levelBarEl.innerHTML='';
+    LEVEL_DEFS.forEach((def,i)=>{
+        const btn=document.createElement('button');
+        btn.className='lvl-btn'+(i===currentLevel?' active':'')+(completedLevels.has(i)?' completed':'');
+        btn.textContent=`${i+1}. ${def.name}`;
+        btn.addEventListener('click',()=>selectLevel(i));
+        levelBarEl.appendChild(btn);
     });
-
-    // Après le slide, vérifier les fusions
-    if(isFront){
-        const totalDelay = 50 + wave.length*120 + 500;
-        setTimeout(()=>{ updateCanFuse(); }, totalDelay);
-    }
 }
 
-function buildPuzzle(){
-    PORTE={t:S.chevron,b:S.circle,rotation:0,state:'white'};
+function selectLevel(idx){
+    currentLevel=idx;
+    showIntro();
+}
+
+function showIntro(){
+    const def=LEVEL_DEFS[currentLevel];
+    document.getElementById('introTitle').textContent=`Niveau ${currentLevel+1}`;
+    document.getElementById('introSub').textContent=def.name+' — '+def.sub;
+    document.getElementById('introDesc').textContent=def.desc;
+    const techsEl=document.getElementById('introTechs');
+    techsEl.innerHTML='';
+    def.techs.forEach(t=>{
+        const el=document.createElement('div');
+        el.className='intro-tech'+(t.new?' new':'');
+        el.textContent=t.t;
+        techsEl.appendChild(el);
+    });
+    document.getElementById('levelIntro').classList.add('show');
+}
+
+function startLevel(){
+    document.getElementById('levelIntro').classList.remove('show');
+    document.getElementById('victory').classList.remove('show');
+    initLevel(currentLevel);
+}
+
+function initLevel(idx){
+    const def=LEVEL_DEFS[idx];
+    PORTE={t:def.porte.t,b:def.porte.b,rotation:def.porte.rotation,state:def.porte.state};
     TABLEAUX=[
-        {name:'T1 — Éveil',sats:[
-            // Vide — les dominos arrivent par vagues
-        ]},
-        {name:'T2 — Passage',sats:[
-            {t:S.wave,b:S.chevron,dx:0,dy:-G,rotation:90,state:'white'},
-            {t:S.line,b:S.twoCircles,dx:G,dy:0,rotation:0,state:'white'},
-            {t:S.circle,b:S.threeLines,dx:0,dy:G,rotation:90,state:'white'},
-        ]},
-        {name:'T3 — Miroir',sats:[
-            {t:S.square,b:S.wave,dx:0,dy:-G,rotation:0,state:'white'},
-            {t:S.twoCircles,b:S.twoPoints,dx:G,dy:0,rotation:0,state:'white'},
-            {t:S.square,b:S.chevron,dx:0,dy:G,rotation:0,state:'white'},
-        ]},
-        {name:'T4 — Convergence',sats:[
-            {t:S.threeLines,b:S.square,dx:0,dy:-G,rotation:0,state:'white'},
-            {t:S.twoPoints,b:S.wave,dx:G,dy:0,rotation:0,state:'white'},
-            {t:S.threeLines,b:S.twoCircles,dx:0,dy:G,rotation:0,state:'white'},
-        ]},
+        {name:'T1 — '+def.name,sats:[]},
+        {name:'T2 — Passage',sats:[]},
+        {name:'T3 — Miroir',sats:[]},
+        {name:'T4 — Convergence',sats:[]},
     ];
     moveCount=0;
-    buildT1Queue();
+    T1_QUEUE=def.waves();
+    T1_WAVE_IDX=0;
+    currentIdx=0;angle=0;busy=false;isRotating=false;
+    groupEl.style.transition='none';groupEl.style.transform='rotateY(0deg)';
+    assignAll();updateUI();buildLevelBar();
+    void groupEl.offsetWidth;
+    groupEl.style.transition='transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94)';
+    setTimeout(spawnWave,400);
+}
+
+function resetCurrentLevel(){
+    document.getElementById('victory').classList.remove('show');
+    initLevel(currentLevel);
+}
+
+function goNextLevel(){
+    document.getElementById('victory').classList.remove('show');
+    if(currentLevel<TOTAL_LEVELS-1){
+        currentLevel++;
+        showIntro();
+    }
 }
 
 // ═══ DOM ═══
@@ -400,7 +547,7 @@ function updateCanFuse(){
     fusionInfoEl.textContent=any?'⟡ Fusion possible':'';
 }
 
-// ═══ NAV ═══
+// ═══ NAV DOTS ═══
 for(let i=0;i<TOTAL;i++){const d=document.createElement('div');d.className='nav-dot'+(i===0?' active':'');d.addEventListener('click',()=>goToTableau(i));dotsEl.appendChild(d);}
 
 function updateUI(){
@@ -410,7 +557,7 @@ function updateUI(){
     document.getElementById('moveCount').textContent=moveCount;
     const wi=document.getElementById('waveInfo');
     if(idx===0 && T1_QUEUE.length>0){
-        wi.textContent=T1_WAVE_IDX>=T1_QUEUE.length?`Niv.${currentLevel} ✓`:`Niv.${currentLevel} · Vague ${T1_WAVE_IDX}/${T1_QUEUE.length}`;
+        wi.textContent=T1_WAVE_IDX>=T1_QUEUE.length?`Niv.${currentLevel+1} ✓`:`Niv.${currentLevel+1} · Vague ${T1_WAVE_IDX}/${T1_QUEUE.length}`;
     } else { wi.textContent=''; }
     checkVictory();
 }
@@ -418,13 +565,58 @@ function updateUI(){
 function goToTableau(idx){if(busy||mod(currentIdx)===idx)return;busy=true;currentIdx=idx;angle=0;groupEl.style.transition='none';groupEl.style.transform='rotateY(0deg)';assignAll();updateUI();void groupEl.offsetWidth;groupEl.style.transition='transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94)';busy=false;}
 function cubeNav(dir){if(busy)return;busy=true;angle+=dir*90;groupEl.style.transform=`rotateY(${-angle}deg)`;setTimeout(()=>{currentIdx=mod(currentIdx+dir);angle=0;groupEl.style.transition='none';groupEl.style.transform='rotateY(0deg)';assignAll();updateUI();void groupEl.offsetWidth;groupEl.style.transition='transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94)';busy=false;},620);}
 
-// ═══ ROTATION BIDIRECTIONNELLE ═══
+// ═══ SPAWN WAVES ═══
+function slideOffset(from){
+    const D=G*3;
+    switch(from){
+        case 'top':    return {ox:0, oy:-D};
+        case 'bottom': return {ox:0, oy:D};
+        case 'left':   return {ox:-D, oy:0};
+        case 'right':  return {ox:D, oy:0};
+    }
+    return {ox:0,oy:0};
+}
+
+function spawnWave(){
+    if(T1_WAVE_IDX>=T1_QUEUE.length) return;
+    if(TABLEAUX[0].sats.length > 0) return;
+    const wave=T1_QUEUE[T1_WAVE_IDX];
+    T1_WAVE_IDX++;
+    const isFront = mod(currentIdx)===0;
+
+    wave.forEach((def,wi)=>{
+        const sat={t:def.t, b:def.b, dx:def.dx, dy:def.dy, rotation:def.rotation, state:def.state};
+        TABLEAUX[0].sats.push(sat);
+        if(isFront){
+            const off=slideOffset(def.from);
+            const el=document.createElement('div');
+            el.className='sat '+(sat.state||'white')+' slide-start';
+            el.innerHTML=dominoSVG(sat.t,sat.b);
+            el.querySelector('svg').style.transform=`rotate(${sat.rotation}deg)`;
+            el.style.transform=`rotateY(0deg) translateZ(${HALF}px) translateX(${sat.dx+off.ox}px) translateY(${sat.dy+off.oy}px)`;
+            groupEl.appendChild(el);
+            satEls.push(el);
+            frontSatEls.push(el);
+            setTimeout(()=>{
+                el.classList.add('slide-in');
+                el.classList.remove('slide-start');
+                el.style.transform=`rotateY(0deg) translateZ(${HALF}px) translateX(${sat.dx}px) translateY(${sat.dy}px)`;
+            }, 50 + wi*120);
+        }
+    });
+
+    if(isFront){
+        const totalDelay = 50 + wave.length*120 + 500;
+        setTimeout(()=>{ updateCanFuse(); }, totalDelay);
+    }
+}
+
+// ═══ ROTATION ═══
 function rotateSat(sat,el,cw){if(isRotating||busy)return;isRotating=true;sat.rotation=(sat.rotation||0)+(cw?90:-90);moveCount++;el.querySelector('svg').style.transform=`rotate(${sat.rotation}deg)`;setTimeout(()=>{isRotating=false;updateUI();checkAutoFuse();},280);}
 function rotatePorte(cw){if(isRotating||busy)return;isRotating=true;PORTE.rotation=(PORTE.rotation||0)+(cw?90:-90);moveCount++;Object.values(faceEls).forEach(f=>{f.querySelector('svg').style.transform=`rotate(${PORTE.rotation}deg)`;});setTimeout(()=>{isRotating=false;updateUI();checkAutoFuse();},280);}
 
-// ═══ FUSION AUTO ═══
+// ═══ AUTO FUSION ═══
 function checkAutoFuse(){if(isRotating||busy)return;const sats=TABLEAUX[mod(currentIdx)].sats;for(let i=0;i<sats.length;i++){const sat=sats[i];const gx=Math.round(sat.dx/G),gy=Math.round(sat.dy/G);if(canFuse(PORTE,0,0,sat,gx,gy)){triggerFusion(mod(currentIdx),i);return;}}
-    // Si T1, pas de fusion possible, et il reste des vagues → spawn
     if(mod(currentIdx)===0 && sats.length===0 && T1_WAVE_IDX<T1_QUEUE.length){
         setTimeout(spawnWave,300);return;
     }
@@ -445,7 +637,6 @@ function triggerFusion(tabIdx,satIdx){
         const stillSameTab = mod(currentIdx) === tabIdx;
         busy=false;
         if(stillSameTab){
-            // Vérifier d'abord les cascades, sinon spawn vague T1
             const hasCascade = TABLEAUX[tabIdx].sats.some((s,i)=>{
                 const sx=Math.round(s.dx/G),sy=Math.round(s.dy/G);
                 return canFuse(PORTE,0,0,s,sx,sy);
@@ -453,7 +644,6 @@ function triggerFusion(tabIdx,satIdx){
             if(hasCascade){
                 setTimeout(checkAutoFuse,150);
             } else if(tabIdx===0 && T1_WAVE_IDX<T1_QUEUE.length){
-                // Pas de cascade, on spawn la vague suivante
                 setTimeout(spawnWave,300);
             } else {
                 updateCanFuse();
@@ -466,29 +656,16 @@ function checkVictory(){
     const t1Done = TABLEAUX[0].sats.length===0 && T1_WAVE_IDX>=T1_QUEUE.length;
     if(t1Done){
         setTimeout(()=>{
+            completedLevels.add(currentLevel);
+            buildLevelBar();
             const v=document.getElementById('victory');
             document.getElementById('victorySub').textContent=`${moveCount} coups — Porte ${PORTE.state}`;
-            document.getElementById('victoryTitle').textContent=currentLevel===1?'Niveau 1 — Résolu':'Niveau 2 — Résolu';
+            document.getElementById('victoryTitle').textContent=`Niveau ${currentLevel+1} — Résolu`;
             const nextBtn=document.getElementById('nextLevelBtn');
-            nextBtn.style.display=currentLevel<2?'inline-block':'none';
+            nextBtn.style.display=currentLevel<TOTAL_LEVELS-1?'inline-block':'none';
             v.classList.add('show');
         },500);
     }
-}
-
-function nextLevel(){
-    document.getElementById('victory').classList.remove('show');
-    currentLevel=2;
-    // Porte héritée du niveau 1 — on ne la reset pas
-    TABLEAUX[0].sats=[];
-    moveCount=0;
-    buildT1Queue();
-    currentIdx=0;angle=0;busy=false;isRotating=false;
-    groupEl.style.transition='none';groupEl.style.transform='rotateY(0deg)';
-    assignAll();updateUI();
-    void groupEl.offsetWidth;
-    groupEl.style.transition='transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94)';
-    setTimeout(spawnWave,400);
 }
 
 // ═══ DRAG / SWAP ═══
@@ -519,8 +696,9 @@ let wA=0,wC=false,wT=null;
 scene.addEventListener('wheel',e=>{e.preventDefault();if(wC)return;wA+=e.deltaX||e.deltaY;clearTimeout(wT);wT=setTimeout(()=>wA=0,150);if(Math.abs(wA)>30){cubeNav(wA>0?1:-1);wA=0;wC=true;setTimeout(()=>wC=false,400);}},{passive:false});
 document.addEventListener('keydown',e=>{if(e.key==='ArrowRight')cubeNav(1);if(e.key==='ArrowLeft')cubeNav(-1);});
 
-function resetPuzzle(){currentLevel=1;buildPuzzle();currentIdx=0;angle=0;busy=false;isRotating=false;groupEl.style.transition='none';groupEl.style.transform='rotateY(0deg)';assignAll();updateUI();void groupEl.offsetWidth;groupEl.style.transition='transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94)';setTimeout(spawnWave,400);}
-buildPuzzle();assignAll();updateUI();setTimeout(spawnWave,600);
+// ═══ INIT ═══
+buildLevelBar();
+showIntro();
 </script>
 </body>
 </html>
