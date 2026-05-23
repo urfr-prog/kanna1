@@ -183,89 +183,63 @@ let T1_QUEUE=[];
 let T1_WAVE_IDX=0;
 
 function buildT1Queue(){
-    // ═══ T1 SÉQUENCE LONGUE — 10 VAGUES ═══
-    // Difficulté progressive : tuto → intermédiaire → avancé → finale
-    // La porte démarre [chevron|circle] rot=0
+    // ═══ SÉQUENCE T1 — 8 VAGUES VÉRIFIÉES PAR SIMULATION ═══
+    // Porte démarre [chevron|circle] r0 white
+    // Solution optimale: 23 coups au total
     T1_QUEUE=[
 
-        // ── PHASE 1 : ÉVEIL (1 domino, gestes simples) ──
+        // ── PHASE 1 : ÉVEIL (1 sat, gestes simples) ──
 
-        // Vague 1 : 1 sat en bas, décalé +90
-        // → Joueur tourne sat 1x CCW → fusion
+        // V1: sat bas — 1 rotation CCW → fuse (1 coup)
+        // Porte expose bottom=circle, sat doit exposer top=circle
+        [{t:S.circle, b:S.square, dx:0, dy:G, rotation:90, state:'white', from:'bottom'}],
+
+        // V2: sat droite — rotation porte CW + sat CCW → fuse (2 coups)
+        // Apprend la rotation porte
+        [{t:S.line, b:S.square, dx:G, dy:0, rotation:180, state:'white', from:'right'}],
+
+        // V3: sat gauche — 1 rotation sat CW → fuse (1 coup)
+        // Direction gauche, variété
+        [{t:S.chevron, b:S.wave, dx:-G, dy:0, rotation:0, state:'white', from:'left'}],
+
+        // ── PHASE 2 : TENSION (2 sats, gestion de l'ordre) ──
+
+        // V4: haut + bas — porte CCW, sat0 CCW x2 → fuse, sat1 CCW → fuse (4 coups)
+        // Premier multi-sat, rotation porte entre fusions
         [
-            {t:S.circle, b:S.square, dx:0, dy:G, rotation:90, state:'white', from:'bottom'},
+            {t:S.threeLines, b:S.wave, dx:0, dy:-G, rotation:180, state:'white', from:'top'},
+            {t:S.line, b:S.circle, dx:0, dy:G, rotation:90, state:'white', from:'bottom'},
         ],
 
-        // Vague 2 : 1 sat à droite, décalé +180
-        // → Joueur tourne sat 2x → fusion
+        // V5: gauche + droite — porte CW, sat0 CW x2 → fuse, sat1 CCW x2 → fuse (5 coups)
+        // Plus exigeant: directions opposées de rotation
         [
-            {t:S.line, b:S.square, dx:G, dy:0, rotation:180, state:'white', from:'right'},
+            {t:S.threeLines, b:S.square, dx:-G, dy:0, rotation:270, state:'white', from:'left'},
+            {t:S.square, b:S.wave, dx:G, dy:0, rotation:90, state:'white', from:'right'},
         ],
 
-        // Vague 3 : 1 sat à gauche, décalé -90
-        // → Joueur doit tourner PORTE 1x CW, puis sat 1x CCW → fusion
+        // ── PHASE 3 : PRESSION (silver, précision) ──
+
+        // V6: 1 sat silver en haut — porte CCW, sat CCW x2 → fuse (3 coups)
+        // Premier domino silver, concentration
+        [{t:S.twoCircles, b:S.wave, dx:0, dy:-G, rotation:180, state:'silver', from:'top'}],
+
+        // V7: 2 sats haut + bas — sat0 CW, sat1 CW → fuse séquentiel (2 coups)
+        // Rythme plus rapide, moins de rotations mais lecture précise
         [
-            {t:S.wave, b:S.threeLines, dx:-G, dy:0, rotation:0, state:'white', from:'left'},
+            {t:S.twoCircles, b:S.twoPoints, dx:0, dy:-G, rotation:90, state:'white', from:'top'},
+            {t:S.circle, b:S.square, dx:0, dy:G, rotation:270, state:'silver', from:'bottom'},
         ],
 
-        // ── PHASE 2 : TENSION (2 dominos, choix d'ordre) ──
+        // ── PHASE 4 : FINALE (3 sats, multi-étapes) ──
 
-        // Vague 4 : 2 dominos haut + bas
-        // → Tourner porte CCW, sat haut CCW → fuse, sat bas 2x → fuse
+        // V8: haut + gauche + droite — 5 coups minimum
+        // Sat0 CW → fuse, porte CW, sat1 CW → fuse, sat2 CCW x2 → fuse
+        // Séquence complète qui exige planification
         [
-            {t:S.twoPoints, b:S.threeLines, dx:0, dy:-G, rotation:90, state:'white', from:'top'},
-            {t:S.line, b:S.twoCircles, dx:0, dy:G, rotation:180, state:'white', from:'bottom'},
-        ],
-
-        // Vague 5 : 2 dominos gauche + droite, rotation porte obligatoire entre les deux
-        // → Sat gauche arrive rot=270, sat droit rot=90
-        // → Tourner porte CW, tourner sat gauche CW → fuse
-        // → Puis tourner sat droit CCW 2x → fuse
-        [
-            {t:S.chevron, b:S.wave, dx:-G, dy:0, rotation:270, state:'white', from:'left'},
-            {t:S.square, b:S.twoPoints, dx:G, dy:0, rotation:90, state:'white', from:'right'},
-        ],
-
-        // Vague 6 : 2 dominos en diagonale simulée (haut + droite)
-        // → Nécessite swap pour repositionner avant fusion
-        // Sat haut rot=180, sat droit rot=90
-        [
-            {t:S.threeLines, b:S.circle, dx:0, dy:-G, rotation:180, state:'white', from:'top'},
-            {t:S.wave, b:S.line, dx:G, dy:0, rotation:90, state:'silver', from:'right'},
-        ],
-
-        // ── PHASE 3 : PRESSION (2-3 dominos, multi-étapes) ──
-
-        // Vague 7 : 3 dominos (haut, bas, droite) — première vraie pression
-        // Joueur doit gérer l'ordre : porte doit être tournée entre fusions
-        [
-            {t:S.twoCircles, b:S.chevron, dx:0, dy:-G, rotation:90, state:'white', from:'top'},
-            {t:S.square, b:S.threeLines, dx:G, dy:0, rotation:270, state:'white', from:'right'},
-            {t:S.wave, b:S.twoPoints, dx:0, dy:G, rotation:180, state:'silver', from:'bottom'},
-        ],
-
-        // Vague 8 : 2 dominos silver, orientations tordues
-        // → Swap entre les deux sats nécessaire, puis rotations
-        [
-            {t:S.line, b:S.chevron, dx:-G, dy:0, rotation:180, state:'silver', from:'left'},
-            {t:S.twoCircles, b:S.square, dx:0, dy:-G, rotation:270, state:'silver', from:'top'},
-        ],
-
-        // ── PHASE 4 : CLIMAX ──
-
-        // Vague 9 : 3 dominos, dont 1 gold — rotation porte x2 + swap obligatoire
-        [
-            {t:S.circle, b:S.wave, dx:0, dy:-G, rotation:270, state:'silver', from:'top'},
-            {t:S.threeLines, b:S.twoPoints, dx:G, dy:0, rotation:90, state:'silver', from:'right'},
-            {t:S.chevron, b:S.line, dx:0, dy:G, rotation:180, state:'gold', from:'bottom'},
-        ],
-
-        // Vague 10 : FINALE — 3 dominos tous côtés, gold + silver
-        // → Nécessite séquence précise : swap, rotation porte, rotation sat, fusion en cascade
-        [
-            {t:S.square, b:S.circle, dx:0, dy:-G, rotation:180, state:'gold', from:'top'},
-            {t:S.twoPoints, b:S.wave, dx:-G, dy:0, rotation:90, state:'silver', from:'left'},
-            {t:S.threeLines, b:S.chevron, dx:G, dy:0, rotation:270, state:'gold', from:'right'},
+            {t:S.square, b:S.chevron, dx:0, dy:-G, rotation:90, state:'silver', from:'top'},
+            {t:S.twoPoints, b:S.line, dx:-G, dy:0, rotation:0, state:'silver', from:'left'},
+            {t:S.wave, b:S.line, dx:G, dy:0, rotation:270, state:'gold', from:'right'},
         ],
     ];
     T1_WAVE_IDX=0;
@@ -285,6 +259,8 @@ function slideOffset(from){
 
 function spawnWave(){
     if(T1_WAVE_IDX>=T1_QUEUE.length) return;
+    // GUARD: ne spawn que si le plateau T1 est vide
+    if(TABLEAUX[0].sats.length > 0) return;
     const wave=T1_QUEUE[T1_WAVE_IDX];
     T1_WAVE_IDX++;
     const tabIdx=0; // T1
@@ -328,8 +304,7 @@ function buildPuzzle(){
     PORTE={t:S.chevron,b:S.circle,rotation:0,state:'white'};
     TABLEAUX=[
         {name:'T1 — Éveil',sats:[
-            // [wave|chevron] rot=180 (décalé) — joueur doit tourner 2x pour aligner
-            {t:S.wave,b:S.chevron,dx:0,dy:-G,rotation:180,state:'white'},
+            // Vide — les dominos arrivent par vagues
         ]},
         {name:'T2 — Passage',sats:[
             {t:S.wave,b:S.chevron,dx:0,dy:-G,rotation:90,state:'white'},
@@ -508,8 +483,8 @@ let wA=0,wC=false,wT=null;
 scene.addEventListener('wheel',e=>{e.preventDefault();if(wC)return;wA+=e.deltaX||e.deltaY;clearTimeout(wT);wT=setTimeout(()=>wA=0,150);if(Math.abs(wA)>30){cubeNav(wA>0?1:-1);wA=0;wC=true;setTimeout(()=>wC=false,400);}},{passive:false});
 document.addEventListener('keydown',e=>{if(e.key==='ArrowRight')cubeNav(1);if(e.key==='ArrowLeft')cubeNav(-1);});
 
-function resetPuzzle(){buildPuzzle();currentIdx=0;angle=0;busy=false;isRotating=false;groupEl.style.transition='none';groupEl.style.transform='rotateY(0deg)';assignAll();updateUI();void groupEl.offsetWidth;groupEl.style.transition='transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94)';}
-buildPuzzle();assignAll();updateUI();
+function resetPuzzle(){buildPuzzle();currentIdx=0;angle=0;busy=false;isRotating=false;groupEl.style.transition='none';groupEl.style.transform='rotateY(0deg)';assignAll();updateUI();void groupEl.offsetWidth;groupEl.style.transition='transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94)';setTimeout(spawnWave,400);}
+buildPuzzle();assignAll();updateUI();setTimeout(spawnWave,600);
 </script>
 </body>
 </html>
