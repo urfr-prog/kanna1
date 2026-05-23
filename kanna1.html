@@ -183,32 +183,35 @@ let T1_QUEUE=[];
 let T1_WAVE_IDX=0;
 
 function buildT1Queue(){
-    // Séquence vérifiée: chaque fusion s'enchaîne automatiquement
-    // Porte initiale: [chevron|circle] rot=0
-    // F1→silver, F2→gold, F3→emerald, F4→cosmic, F5+F6 cosmic
+    // Séquence vérifiée — chaque sat arrive MAL ORIENTÉ
+    // Le joueur doit tourner sat et/ou porte pour aligner
     T1_QUEUE=[
-        // Vague 1 : 1 domino (slide du bas, se place en bas)
-        // Porte après F1: [wave|circle] rot=0, bottom=circle → sat.t=circle
+        // Vague 1 : 1 domino (slide du bas, position bas)
+        // [circle|square] rot=90 (solution=rot=0, décalé +90)
+        // Joueur tourne 1x CCW pour aligner
         [
-            {t:S.circle, b:S.square, dx:0, dy:G, rotation:0, state:'white', from:'bottom'},
+            {t:S.circle, b:S.square, dx:0, dy:G, rotation:90, state:'white', from:'bottom'},
         ],
-        // Vague 2 : 2 dominos (slide gauche→haut, slide droite→haut)
-        // Porte après F2: [square|wave] rot=0, top=square → sat.b=square
-        // Le 2ème domino est en attente en bas, ne fusionne pas encore
+        // Vague 2 : 1 domino (slide de droite, position droite)
+        // [line|square] rot=270 (solution=rot=90, décalé +180)
+        // Joueur doit d'abord tourner PORTE CW, puis tourner sat 2x
         [
-            {t:S.line, b:S.square, dx:0, dy:-G, rotation:0, state:'white', from:'left'},
+            {t:S.line, b:S.square, dx:G, dy:0, rotation:270, state:'white', from:'right'},
         ],
-        // Vague 3 : 2 dominos (slide droite→bas + slide haut pour déco)
-        // Porte après F3: [line|wave] rot=0, bottom=wave → sat.t=wave
+        // Vague 3 : 1 domino (slide de gauche, position gauche)
+        // [wave|threeLines] rot=0 (solution=rot=90, décalé -90)
+        // Joueur tourne sat 1x CW pour aligner
         [
-            {t:S.wave, b:S.threeLines, dx:0, dy:G, rotation:0, state:'white', from:'right'},
-            {t:S.twoPoints, b:S.threeLines, dx:0, dy:-G, rotation:0, state:'white', from:'top'},
+            {t:S.wave, b:S.threeLines, dx:-G, dy:0, rotation:0, state:'white', from:'left'},
         ],
-        // Vague 4 : 1 domino final (slide du bas)
-        // Porte après F4: [threeLines|line] rot=0 → F5 auto (haut: sat.b=threeLines ✓)
-        // Porte après F5: [twoPoints|line] rot=0, bottom=line → sat.t=line
+        // Vague 4 : 2 dominos simultanés (haut + bas)
+        // Joueur doit tourner PORTE CCW d'abord
+        // Haut: [twoPoints|threeLines] rot=90 (solution=rot=0, décalé +90)
+        // Bas: [line|twoCircles] rot=180 (solution=rot=0, décalé +180)
+        // Joueur tourne sat haut 1x CCW, fusionne, puis tourne sat bas 2x, fusionne
         [
-            {t:S.line, b:S.twoCircles, dx:0, dy:G, rotation:0, state:'white', from:'bottom'},
+            {t:S.twoPoints, b:S.threeLines, dx:0, dy:-G, rotation:90, state:'white', from:'top'},
+            {t:S.line, b:S.twoCircles, dx:0, dy:G, rotation:180, state:'white', from:'bottom'},
         ],
     ];
     T1_WAVE_IDX=0;
@@ -271,8 +274,8 @@ function buildPuzzle(){
     PORTE={t:S.chevron,b:S.circle,rotation:0,state:'white'};
     TABLEAUX=[
         {name:'T1 — Éveil',sats:[
-            // Sat initial: auto-fuse avec porte [chevron|circle] via top=chevron
-            {t:S.wave,b:S.chevron,dx:0,dy:-G,rotation:0,state:'white'},
+            // [wave|chevron] rot=180 (décalé) — joueur doit tourner 2x pour aligner
+            {t:S.wave,b:S.chevron,dx:0,dy:-G,rotation:180,state:'white'},
         ]},
         {name:'T2 — Passage',sats:[
             {t:S.wave,b:S.chevron,dx:0,dy:-G,rotation:90,state:'white'},
