@@ -464,8 +464,7 @@ function triggerFusion(tabIdx,satIdx){
 
 function checkVictory(){
     const t1Done = TABLEAUX[0].sats.length===0 && T1_WAVE_IDX>=T1_QUEUE.length;
-    const othersDone = TABLEAUX.slice(1).every(t=>t.sats.length===0);
-    if(t1Done && othersDone){
+    if(t1Done){
         setTimeout(()=>{
             const v=document.getElementById('victory');
             document.getElementById('victorySub').textContent=`${moveCount} coups — Porte ${PORTE.state}`;
